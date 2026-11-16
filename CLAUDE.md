@@ -172,6 +172,28 @@ Items marked SCHEMA need approval of the SQL before building.
 - [ ] **Object icon/emoji and cover image** SCHEMA: `objects.icon`, `objects.cover_key` (R2).
 - [ ] **Quick capture**: a global shortcut and a phone-friendly button that appends a line to today's note.
 
+### Gap analysis round 2 (after daily notes, workspaces, per-workspace types)
+
+Checked against docs.capacities.io: properties, object properties, views, task management, daily notes.
+Ranked by value for daily use. SCHEMA items need the SQL approved first.
+
+- [ ] **N1 Property kinds** SCHEMA-free (JSON): `checkbox`, multi-select labels, and multi-value relation
+      ("object select" defaults to multiple in Capacities; ours is single). Foundation for tasks and filters.
+- [ ] **N2 Tasks** SCHEMA: a Task type with Done (checkbox), Date (when to work on it) and Deadline; the daily
+      note gets a Tasks section with tasks dated that day plus overdue ones; checklist items can be turned into
+      tasks. Recurring tasks later.
+- [ ] **N3 Queries in notes** SCHEMA: save a type page's filter/sort as a named view and embed it as a live
+      block in any note (Capacities' query blocks). Replaces "Saved queries" above.
+- [ ] **N4 Collections** (as above).
+- [ ] **N5 Object embeds / cards** in the editor (as above), then block references (P3).
+- [ ] **N6 Bulk actions** on type pages: select several, set a property, tag, move to trash.
+- [ ] **N7 Aliases**: extra names per object, used by `@` search and unlinked mentions.
+- [ ] **N8 Calendar depth**: a time property and times on scheduled objects; week and month views;
+      a "reviewed" mark on daily notes.
+- [ ] **N9 Icons/covers** and **quick capture** (as above).
+- [ ] **Small**: move an object to another workspace; Day/Tag switchable per workspace; date picker in the
+      filter row; "+ Type" buttons on other object pages (KB's own idea, not in Capacities).
+
 ### Only if asked (P3)
 
 - [ ] Block references and transclusion (embed another object's block, edit in place).
