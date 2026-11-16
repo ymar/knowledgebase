@@ -178,6 +178,20 @@ export default function CommandPalette({
         });
       }
     }
+    for (const [choice, label, icon] of [['light', 'Light theme', 'sun'], ['dark', 'Dark theme', 'moon'], ['system', 'System theme', 'monitor']] as const) {
+      if (query && (label.toLowerCase().includes(lower) || ('theme'.startsWith(lower) && lower.length > 1) || (lower === 'mode'))) {
+        out.push({
+          key: `theme:${choice}`,
+          group: 'Appearance',
+          label,
+          icon: { icon, color: '#78716c' },
+          run: () => {
+            (window as unknown as { kbSetTheme?: (c: string) => void }).kbSetTheme?.(choice);
+            hide();
+          },
+        });
+      }
+    }
     for (const [label, url, icon] of [['Workspaces', '/workspaces', 'users'], ['Types', '/types', 'sliders'], ['Trash', '/trash', 'archive'], ['Export', '/export', 'download']]) {
       if (query && label.toLowerCase().startsWith(lower)) {
         out.push({ key: `p:${url}`, group: 'Go to', label, detail: 'Page', icon: { icon, color: '#78716c' }, run: go(url) });
@@ -203,7 +217,7 @@ export default function CommandPalette({
       }
     }
     return out;
-  }, [hits, recent, q, types, workspaces, currentWorkspace]);
+  }, [hits, recent, q, types, workspaces, currentWorkspace, hide]);
 
   const run = useCallback(
     async (a: Action | undefined) => {

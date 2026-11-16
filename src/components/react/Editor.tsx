@@ -10,7 +10,7 @@ import {
 } from '@blocknote/react';
 import { BlockNoteView } from '@blocknote/mantine';
 import { codeBlockOptions, syntaxHighlighter } from '@blocknote/code-block';
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { TypeTile } from './TypeTile';
 
 export interface TypeInfo {
@@ -145,6 +145,23 @@ async function uploadFile(file: File): Promise<string> {
   return data.url;
 }
 
+/** Effective theme: <html data-theme> if set, else the system preference. Updates live. */
+function subscribeTheme(cb: () => void) {
+  const mq = matchMedia('(prefers-color-scheme: dark)');
+  const mo = new MutationObserver(cb);
+  mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  mq.addEventListener('change', cb);
+  return () => {
+    mo.disconnect();
+    mq.removeEventListener('change', cb);
+  };
+}
+const readTheme = (): 'light' | 'dark' => {
+  const forced = document.documentElement.dataset.theme;
+  if (forced === 'light' || forced === 'dark') return forced;
+  return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+};
+
 /* ---------- editor ---------- */
 
 type SaveState = 'saved' | 'dirty' | 'saving' | 'error';
@@ -161,6 +178,7 @@ export default function Editor(props: {
 }) {
   const wsq = `ws=${encodeURIComponent(props.workspaceId)}`;
   const typesById = useMemo(() => Object.fromEntries(props.types.map((t) => [t.id, t])), [props.types]);
+  const theme = useSyncExternalStore(subscribeTheme, readTheme, () => 'light' as const);
   const [refs, setRefs] = useState(props.refs);
 
   const editor = useCreateBlockNote({
@@ -327,7 +345,7 @@ export default function Editor(props: {
   return (
     <RefsContext.Provider value={{ refs, types: typesById }}>
       <div className="editor-shell">
-        <BlockNoteView editor={editor} onChange={onChange} slashMenu={false}>
+        <BlockNoteView editor={editor} onChange={onChange} slashMenu={false} theme={theme}>
           <SuggestionMenuController
             triggerCharacter="/"
             getItems={async (q) => filterSuggestionItems(getDefaultReactSlashMenuItems(editor), q)}

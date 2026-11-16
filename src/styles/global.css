@@ -24,9 +24,11 @@
   --primary: #1c1917;
   --primary-ink: #ffffff;
   --tint: 14%;
+  color-scheme: light;
 }
+/* Theme: <html data-theme="light|dark"> forces one; no attribute follows the system. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --page: #161514;
     --panel: #1c1b1a;
     --card: #211f1e;
@@ -37,7 +39,21 @@
     --primary: #f5f5f4;
     --primary-ink: #1c1917;
     --tint: 22%;
+    color-scheme: dark;
   }
+}
+:root[data-theme='dark'] {
+  --page: #161514;
+  --panel: #1c1b1a;
+  --card: #211f1e;
+  --ink: #f5f5f4;
+  --muted: #a8a29e;
+  --line: #2f2d2b;
+  --hover: #292725;
+  --primary: #f5f5f4;
+  --primary-ink: #1c1917;
+  --tint: 22%;
+  color-scheme: dark;
 }
 
 html { background: var(--page); color: var(--ink); font-family: var(--font-sans); font-feature-settings: 'cv11', 'ss01'; }
@@ -66,13 +82,16 @@ kbd { @apply rounded border border-line bg-card px-1.5 py-0.5 font-sans text-[11
 
 /* ---------- editor ---------- */
 .editor-shell { position: relative; min-height: 12rem; }
-.editor-shell .bn-container {
+.editor-shell .bn-container,
+.editor-shell .bn-container[data-color-scheme] {
   --bn-font-family: var(--font-sans);
   --bn-colors-editor-background: transparent;
   --bn-colors-editor-text: var(--ink);
   --bn-border-radius: 10px;
 }
-.editor-shell .bn-editor { padding-inline: 0; font-size: 16px; line-height: 1.65; }
+.editor-shell .bn-editor { padding-inline: 0; font-size: 16px; line-height: 1.65; background: transparent; }
+/* The logo tile is near-black; give it an edge so it holds up on the dark sidebar. */
+.logo { border-radius: 8px; box-shadow: 0 0 0 1px var(--line); }
 @media (min-width: 768px) {
   .editor-shell { margin-left: -54px; }
   .editor-shell .bn-editor { padding-left: 54px; }

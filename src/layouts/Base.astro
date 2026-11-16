@@ -9,16 +9,25 @@ import { dayLabel } from '../lib/format';
 interface Props { title?: string; activeTypeId?: string; activeObjectId?: string; home?: boolean }
 const { title = 'Cairn', activeTypeId, activeObjectId, home = false } = Astro.props;
 const ws = Astro.locals.workspace;
+// 'light' | 'dark' forces a theme; anything else follows the system. A cookie, so the server renders it without a flash.
+const themeCookie = Astro.cookies.get('theme')?.value;
+const theme = themeCookie === 'light' || themeCookie === 'dark' ? themeCookie : undefined;
 const [types, counts, pinned] = await Promise.all([listTypes(ws.id), countByType(ws.id), listPinned(ws.id)]);
 const paletteTypes = types.map((t) => ({ id: t.id, name: t.name, slug: t.slug, icon: t.icon, color: t.color }));
 ---
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme={theme}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#fafaf9" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#161514" media="(prefers-color-scheme: dark)" />
+    {theme ? (
+      <meta name="theme-color" content={theme === 'dark' ? '#161514' : '#fafaf9'} />
+    ) : (
+      <>
+        <meta name="theme-color" content="#fafaf9" media="(prefers-color-scheme: light)" />
+        <meta name="theme-color" content="#161514" media="(prefers-color-scheme: dark)" />
+      </>
+    )}
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -33,7 +42,7 @@ const paletteTypes = types.map((t) => ({ id: t.id, name: t.name, slug: t.slug, i
         <Icon name="menu" />
       </button>
       <a href="/" class="flex items-center gap-2 text-[15px] font-semibold">
-        <img src="/favicon.svg" alt="" class="h-6 w-6" /> KB
+        <img src="/favicon.svg" alt="" class="logo h-6 w-6" /> KB
       </a>
       <span class="flex items-center gap-1.5 rounded-full border border-line px-2 py-0.5 text-xs text-muted">
         <span class="h-2 w-2 rounded-full" style={`background:${ws.color}`}></span>{ws.name}
@@ -47,7 +56,7 @@ const paletteTypes = types.map((t) => ({ id: t.id, name: t.name, slug: t.slug, i
       <nav id="sidebar" aria-label="Types"
         class="fixed inset-y-0 left-0 z-40 hidden w-64 overflow-y-auto border-r border-line bg-panel px-3 py-4 shadow-xl data-[open=true]:block md:sticky md:top-0 md:block md:h-screen md:w-auto md:shadow-none">
         <a href="/" class="mb-5 flex items-center gap-2.5 px-2 text-[15px] font-semibold">
-          <img src="/favicon.svg" alt="" class="h-7 w-7" /> KB
+          <img src="/favicon.svg" alt="" class="logo h-7 w-7" /> KB
         </a>
 
         <details class="relative mb-3" id="ws-menu">
@@ -127,7 +136,17 @@ const paletteTypes = types.map((t) => ({ id: t.id, name: t.name, slug: t.slug, i
           ))}
         </ul>
 
-        <p class="mt-6 space-y-1 px-2 text-xs text-muted">
+        <div role="radiogroup" aria-label="Theme" class="mt-6 flex gap-1 rounded-lg bg-hover/70 p-1">
+          {([['system', 'monitor', 'System'], ['light', 'sun', 'Light'], ['dark', 'moon', 'Dark']] as const).map(([value, icon, label]) => (
+            <button type="button" role="radio" data-theme-choice={value} aria-checked={(theme ?? 'system') === value ? 'true' : 'false'}
+              class="flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted hover:text-ink aria-checked:bg-card aria-checked:text-ink aria-checked:shadow-xs"
+              title={`${label} theme`}>
+              <Icon name={icon} size={14} /><span>{label}</span>
+            </button>
+          ))}
+        </div>
+
+        <p class="mt-4 space-y-1 px-2 text-xs text-muted">
           <span class="block"><kbd>⌘K</kbd> search and commands</span>
           <span class="block"><kbd>n</kbd> new object on a type page</span>
         </p>
@@ -141,6 +160,24 @@ const paletteTypes = types.map((t) => ({ id: t.id, name: t.name, slug: t.slug, i
     <CommandPalette client:load types={paletteTypes} workspaces={Astro.locals.workspaces.map((w) => ({ id: w.id, name: w.name, color: w.color }))} currentWorkspace={ws.id} />
 
     <script is:inline>
+      // Theme: applied live, remembered in a cookie for server rendering. Also used by the palette.
+      window.kbSetTheme = (choice) => {
+        const root = document.documentElement;
+        if (choice === 'light' || choice === 'dark') root.dataset.theme = choice;
+        else delete root.dataset.theme;
+        document.cookie = choice === 'light' || choice === 'dark'
+          ? `theme=${choice}; path=/; max-age=31536000; samesite=lax`
+          : 'theme=; path=/; max-age=0; samesite=lax';
+        document.querySelectorAll('[data-theme-choice]').forEach((b) =>
+          b.setAttribute('aria-checked', String(b.dataset.themeChoice === (root.dataset.theme ?? 'system'))));
+        document.querySelectorAll('meta[name=theme-color]').forEach((m) => m.remove());
+        const meta = document.createElement('meta');
+        meta.name = 'theme-color';
+        const dark = root.dataset.theme === 'dark' || (!root.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
+        meta.content = dark ? '#161514' : '#fafaf9';
+        document.head.appendChild(meta);
+      };
+      document.querySelectorAll('[data-theme-choice]').forEach((b) => b.addEventListener('click', () => window.kbSetTheme(b.dataset.themeChoice)));
       // Show Ctrl instead of ⌘ outside Apple platforms.
       if (!/Mac|iPhone|iPad/.test(navigator.platform)) document.querySelectorAll('kbd').forEach((k) => { k.textContent = k.textContent.replace('⌘', 'Ctrl '); });
       const nav = document.getElementById('sidebar');
