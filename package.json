@@ -9,8 +9,8 @@
     "preview": "astro preview",
     "check": "astro check",
     "types": "wrangler types",
-    "db:migrate": "wrangler d1 migrations apply cairn-db --local",
-    "db:migrate:remote": "wrangler d1 migrations apply cairn-db --remote",
+    "db:migrate": "wrangler d1 migrations apply kb-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply kb-db --remote",
     "db:reset": "rm -rf .wrangler/state && npm run db:migrate"
   },
   "dependencies": {

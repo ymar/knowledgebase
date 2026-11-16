@@ -23,8 +23,8 @@ Bindings (`DB`, `FILES`) are declared in `wrangler.jsonc` and read in code with
 
 ## Deploy
 
-1. `npx wrangler d1 create cairn-db`, then put the returned `database_id` in `wrangler.jsonc`.
-2. `npx wrangler r2 bucket create cairn-files`.
+1. `npx wrangler d1 create kb-db`, then put the returned `database_id` in `wrangler.jsonc`.
+2. `npx wrangler r2 bucket create kb-files`.
 3. `npm run db:migrate:remote`, then `npx astro build && npx wrangler deploy`.
 4. Put Cloudflare Access in front of the Worker.
 
