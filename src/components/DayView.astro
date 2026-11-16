@@ -7,7 +7,8 @@ import DatePicker from './DatePicker.astro';
 import QuickAdd from './QuickAdd.astro';
 import DateRefs from './DateRefs.astro';
 import MonthCalendar from './MonthCalendar.astro';
-import { activityOn, dateReferences, daysWithNotes, findDay, getObject, getTypeById, listTypes, markOpened, scheduledCounts } from '../lib/db';
+import TaskList from './TaskList.astro';
+import { activityOn, dateReferences, daysWithNotes, findDay, getObject, getTypeById, isTaskType, listTypes, markOpened, scheduledCounts, tasksForDay } from '../lib/db';
 import { editorProps } from '../lib/editor-props';
 import { addDays, dayLabel } from '../lib/format';
 
@@ -35,17 +36,20 @@ const gridEnd = addDays(gridStart, 41);
 const rangeFrom = gridStart < week[0] ? gridStart : week[0];
 const rangeTo = gridEnd > week[6] ? gridEnd : week[6];
 
-const [day, withNotes, activity, refsOnDay, scheduled, allTypes] = await Promise.all([
+const [day, withNotes, activity, refsOnDay, scheduled, allTypes, tasks] = await Promise.all([
   dayId ? getObject(dayId) : null,
   daysWithNotes(ws, rangeFrom, rangeTo),
   activityOn(ws, date),
   dateReferences(ws, date),
   scheduledCounts(ws, gridStart, gridEnd),
   listTypes(ws, { includeDisabled: true }),
+  tasksForDay(ws, date, today),
 ]);
 const propLabel = (typeId: string, key: string) =>
   allTypes.find((t) => t.id === typeId)?.properties.find((p) => p.key === key)?.label ?? 'Date';
-const dateRefItems = refsOnDay.map((r) => ({ ...r, label: propLabel(r.type_id, r.day_key) }));
+// Tasks have their own list; Date references shows everything else scheduled on the day.
+const dateRefItems = refsOnDay.filter((r) => !isTaskType(r.type_id)).map((r) => ({ ...r, label: propLabel(r.type_id, r.day_key) }));
+const taskTypeId = allTypes.find((t) => isTaskType(t.id) && t.enabled)?.id ?? null;
 // No day object yet: show the Day template. The object is created on first save.
 const initial = day ? day.content : ((await getTypeById('type_day'))?.template ?? []);
 const { refs, types } = await editorProps(ws, initial);
@@ -85,8 +89,10 @@ const fmt = (iso: string, opt: Intl.DateTimeFormatOptions) =>
   ))}
 </nav>
 
+<TaskList planned={tasks.planned} due={tasks.due} today={today} />
+
 <div class="mt-8">
-  <Editor client:only="react" saveUrl={`/api/days/${date}/content?ws=${ws}`} workspaceId={ws} initialContent={initial} refs={refs} types={types} selfId={dayId} />
+  <Editor client:only="react" saveUrl={`/api/days/${date}/content?ws=${ws}`} workspaceId={ws} taskTypeId={taskTypeId} dayDate={date} initialContent={initial} refs={refs} types={types} selfId={dayId} />
 </div>
 
 <DateRefs items={dateRefItems} class="mt-12 xl:hidden" />

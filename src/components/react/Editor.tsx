@@ -175,6 +175,10 @@ export default function Editor(props: {
   selfId?: string | null;
   /** Workspace of the document. Search, inline create and date links stay inside it. */
   workspaceId: string;
+  /** The workspace's Task type, if on: enables "Turn into task" in the / menu. */
+  taskTypeId?: string | null;
+  /** On a daily note: new tasks are planned for this day. */
+  dayDate?: string;
 }) {
   const wsq = `ws=${encodeURIComponent(props.workspaceId)}`;
   const typesById = useMemo(() => Object.fromEntries(props.types.map((t) => [t.id, t])), [props.types]);
@@ -272,6 +276,47 @@ export default function Editor(props: {
     [editor],
   );
 
+  /**
+   * "/ Turn into task": the current line becomes a Task object (title = the line's text,
+   * planned for this day on a daily note, done if it was a ticked checklist item) and the
+   * line is replaced by a link to it, so the task shows in the day's task list.
+   */
+  const turnIntoTask = useCallback(async () => {
+    if (!props.taskTypeId) return;
+    const block = editor.getTextCursorPosition().block;
+    const text = (Array.isArray(block.content) ? block.content : [])
+      .map((c) => ('text' in c ? c.text : ''))
+      .join('')
+      .trim();
+    if (!text) return;
+    const s = await api<Summary>('/api/objects', {
+      method: 'POST',
+      body: JSON.stringify({ typeId: props.taskTypeId, title: text, workspaceId: props.workspaceId, date: props.dayDate }),
+    });
+    if (block.type === 'checkListItem' && (block.props as { checked?: boolean }).checked) {
+      await fetch(`/api/objects/${s.id}/done`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ value: true }) });
+    }
+    setRefs((r) => ({ ...r, [s.id]: { title: s.title, typeId: s.type_id } }));
+    editor.updateBlock(block, {
+      type: 'paragraph',
+      content: [{ type: 'mention', props: { id: s.id, title: s.title, typeId: s.type_id } }, ' '],
+    } as never);
+  }, [editor, props.taskTypeId, props.workspaceId, props.dayDate]);
+
+  const taskItems: DefaultReactSuggestionItem[] = props.taskTypeId
+    ? [{
+        title: 'Turn into task',
+        subtext: props.dayDate ? 'This line becomes a task planned for this day' : 'This line becomes a task',
+        aliases: ['task', 'todo'],
+        group: 'Tasks',
+        icon: (() => {
+          const t = typesById[props.taskTypeId!];
+          return t ? <TypeTile icon={t.icon} color={t.color} size={22} /> : undefined;
+        })(),
+        onItemClick: () => void turnIntoTask(),
+      }]
+    : [];
+
   const toItem = useCallback(
     (s: Summary, group: string): DefaultReactSuggestionItem => ({
       title: s.type_id === DAY ? dayLabel(s.title) : s.title || 'Untitled',
@@ -348,7 +393,7 @@ export default function Editor(props: {
         <BlockNoteView editor={editor} onChange={onChange} slashMenu={false} theme={theme}>
           <SuggestionMenuController
             triggerCharacter="/"
-            getItems={async (q) => filterSuggestionItems(getDefaultReactSlashMenuItems(editor), q)}
+            getItems={async (q) => filterSuggestionItems([...taskItems, ...getDefaultReactSlashMenuItems(editor)], q)}
           />
           <SuggestionMenuController triggerCharacter="@" getItems={getObjectItems} />
           <SuggestionMenuController triggerCharacter="[[" getItems={getObjectItems} />

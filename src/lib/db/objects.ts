@@ -1,4 +1,4 @@
-import type { ObjectRow, ObjectSummary, PropertyDef, PropertyValue } from '../schema';
+import { relationIds, type ObjectRow, type ObjectSummary, type PropertyDef, type PropertyValue } from '../schema';
 import { newId } from '../ulid';
 import { db, nowIso, parseJson } from './index';
 import { contentLinkStatements } from './links';
@@ -97,8 +97,8 @@ export async function saveProperties(
   const now = nowIso();
   const relationTargets = defs
     .filter((d) => d.kind === 'relation')
-    .map((d) => values[d.key])
-    .filter((v): v is string => typeof v === 'string' && v !== '' && v !== id);
+    .flatMap((d) => relationIds(values[d.key]))
+    .filter((v) => v !== id);
   const unique = [...new Set(relationTargets)];
 
   const d = db();
@@ -168,8 +168,8 @@ export async function changeType(
     ...new Set(
       newDefs
         .filter((x) => x.kind === 'relation')
-        .map((x) => kept[x.key])
-        .filter((v): v is string => typeof v === 'string' && v !== '' && v !== id),
+        .flatMap((x) => relationIds(kept[x.key]))
+        .filter((v) => v !== id),
     ),
   ];
   await d.batch([
@@ -188,4 +188,12 @@ export async function changeType(
     ),
   ]);
   return dropped;
+}
+
+/** Sets one property value in place (e.g. ticking a task done) without touching the others. */
+export async function setPropertyValue(id: string, key: string, value: PropertyValue): Promise<void> {
+  await db()
+    .prepare('UPDATE objects SET properties = json_set(properties, ?, json(?)), updated_at = ? WHERE id = ? AND deleted_at IS NULL')
+    .bind(`$."${key}"`, JSON.stringify(value), nowIso(), id)
+    .run();
 }

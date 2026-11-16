@@ -73,6 +73,15 @@ Do not copy Capacities assets, icons, logo or wording.
   object with that property set to the day, lists it under "Date references" and leaves the note text alone.
   Day pages are `wide`: at xl a side panel holds the month calendar (dots: note, scheduled) and Date references;
   below xl the week strip and an inline Date references list show instead.
+- Property kinds: text, number, date, url, checkbox (boolean), select, multiselect (string[]), relation
+  (single id, or id[] when `multiple`). `relationIds()` reads either shape; filters use `json_each`, so a single
+  value counts as a list of one. Relation links are rebuilt from both shapes.
+- Tasks (migration 0010): starter type Task per workspace (`type_task`, `type_task__<ws>`; `isTaskType()`), with
+  Done (checkbox), Date (its daily-notes property) and Deadline. Daily notes show a Tasks list: planned for the
+  day, plus on today open tasks planned earlier or due today or earlier. Ticking calls
+  `POST /api/objects/:id/done` (sets one checkbox via `json_set`). Tasks are left out of Date references.
+  "/ Turn into task" in the editor turns the current line into a Task (planned for the day on a daily note,
+  done if the checklist item was ticked) and replaces the line with a link to it.
 - `astro dev` runs as a managed background process: stop it with `npx astro dev stop` before `db:reset`.
 
 ## Code rules
@@ -177,9 +186,9 @@ Items marked SCHEMA need approval of the SQL before building.
 Checked against docs.capacities.io: properties, object properties, views, task management, daily notes.
 Ranked by value for daily use. SCHEMA items need the SQL approved first.
 
-- [ ] **N1 Property kinds** SCHEMA-free (JSON): `checkbox`, multi-select labels, and multi-value relation
+- [x] **N1 Property kinds** SCHEMA-free (JSON): `checkbox`, multi-select labels, and multi-value relation
       ("object select" defaults to multiple in Capacities; ours is single). Foundation for tasks and filters.
-- [ ] **N2 Tasks** SCHEMA: a Task type with Done (checkbox), Date (when to work on it) and Deadline; the daily
+- [x] **N2 Tasks** SCHEMA: a Task type with Done (checkbox), Date (when to work on it) and Deadline; the daily
       note gets a Tasks section with tasks dated that day plus overdue ones; checklist items can be turned into
       tasks. Recurring tasks later.
 - [ ] **N3 Queries in notes** SCHEMA: save a type page's filter/sort as a named view and embed it as a live

@@ -1,14 +1,20 @@
-export type PropertyKind = 'text' | 'number' | 'date' | 'url' | 'select' | 'relation';
+export type PropertyKind = 'text' | 'number' | 'date' | 'url' | 'checkbox' | 'select' | 'multiselect' | 'relation';
 
 export interface PropertyDef {
   key: string;
   label: string;
   kind: PropertyKind;
-  /** select only */
+  /** select and multiselect */
   options?: string[];
   /** relation only: slug of the target type */
   target?: string;
+  /** relation only: holds several objects (value is an id array) */
+  multiple?: boolean;
 }
+
+/** Ids held by a relation value, single or multiple. */
+export const relationIds = (v: unknown): string[] =>
+  (Array.isArray(v) ? v : [v]).filter((x): x is string => typeof x === 'string' && x !== '');
 
 export interface TypeRow {
   id: string;
@@ -28,7 +34,8 @@ export interface TypeRow {
   day_key: string | null;
 }
 
-export type PropertyValue = string | number | null;
+/** checkbox: boolean; multiselect and multi-relation: string[]. */
+export type PropertyValue = string | number | boolean | string[] | null;
 
 export interface ObjectRow {
   id: string;

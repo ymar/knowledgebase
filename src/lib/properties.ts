@@ -4,8 +4,24 @@ import type { PropertyDef, PropertyValue } from './schema';
 export function parsePropertyForm(defs: PropertyDef[], form: FormData): Record<string, PropertyValue> {
   const out: Record<string, PropertyValue> = {};
   for (const def of defs) {
-    const raw = form.get(`p_${def.key}`);
-    const s = typeof raw === 'string' ? raw.trim() : '';
+    const all = form.getAll(`p_${def.key}`).map((v) => (typeof v === 'string' ? v.trim() : '')).filter(Boolean);
+
+    // Kinds that hold several values or a boolean.
+    if (def.kind === 'checkbox') {
+      // The form sends a hidden "false" plus "true" when ticked.
+      out[def.key] = all.includes('true');
+      continue;
+    }
+    if (def.kind === 'multiselect') {
+      out[def.key] = [...new Set(all.filter((v) => def.options?.includes(v)))];
+      continue;
+    }
+    if (def.kind === 'relation' && def.multiple) {
+      out[def.key] = [...new Set(all)];
+      continue;
+    }
+
+    const s = all[0] ?? '';
     if (s === '') {
       out[def.key] = null;
       continue;

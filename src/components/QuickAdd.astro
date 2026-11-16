@@ -8,6 +8,7 @@
 import Icon from './Icon.astro';
 import TypeTile from './TypeTile.astro';
 import type { TypeRow } from '../lib/schema';
+import { isTaskType } from '../lib/db/tasks';
 
 interface Props { types: TypeRow[]; date: string; workspaceId: string }
 const { date, workspaceId } = Astro.props;
@@ -18,7 +19,7 @@ const labelOf = (t: TypeRow) => t.properties.find((p) => p.key === t.day_key)?.l
   <div data-quick-add data-date={date} data-ws={workspaceId} class="mt-4">
     <div class="flex flex-wrap gap-2" role="group" aria-label="Add to this day">
       {types.map((t) => (
-        <button type="button" data-qa-type={t.id} data-qa-name={t.name} data-qa-label={labelOf(t)}
+        <button type="button" data-qa-type={t.id} data-qa-name={t.name} data-qa-label={labelOf(t)} data-qa-task={isTaskType(t.id) ? 'true' : undefined}
           title={`New ${t.name.toLowerCase()} with ${labelOf(t)} on this day`}
           class="inline-flex items-center gap-1.5 rounded-lg border border-line bg-card py-1 pl-2 pr-2.5 text-sm text-ink/80 shadow-xs transition hover:border-ink/25 hover:text-ink aria-pressed:border-ink/40 aria-pressed:text-ink">
           <Icon name="plus" size={13} class="text-muted" />
@@ -88,9 +89,38 @@ const labelOf = (t: TypeRow) => t.properties.find((p) => p.key === t.day_key)?.l
       }
       const s = (await res.json()) as { id: string; title: string; type_name: string; type_icon: string; type_color: string };
 
-      // Show it under Date references right away (main column and side panel).
+      // Tasks go into the day's task list, ready to tick.
+      if (chip.dataset.qaTask) {
+        const list = document.querySelector<HTMLElement>('[data-task-list=planned]');
+        if (list) {
+          const li = document.createElement('li');
+          li.className = 'flex items-center gap-3 px-3.5 py-2.5';
+          li.dataset.task = s.id;
+          li.dataset.done = 'false';
+          const box = document.createElement('button');
+          box.type = 'button';
+          box.dataset.toggle = '';
+          box.setAttribute('role', 'checkbox');
+          box.setAttribute('aria-checked', 'false');
+          box.setAttribute('aria-label', `Done: ${s.title}`);
+          box.className = 'task-box flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-ink/30 text-primary-ink transition aria-checked:border-primary aria-checked:bg-primary';
+          box.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="check"><path d="M20 6 9 17l-5-5"/></svg>';
+          const a = document.createElement('a');
+          a.href = `/o/${s.id}`;
+          a.className = 'min-w-0 flex-1 truncate text-[15px] hover:underline';
+          a.dataset.title = '';
+          a.textContent = s.title;
+          li.appendChild(box);
+          li.appendChild(a);
+          list.appendChild(li);
+          list.closest('[data-group]')?.classList.remove('hidden');
+          list.closest('[data-tasks]')?.classList.remove('hidden');
+        }
+      }
+
+      // Everything else shows under Date references right away (main column and side panel).
       const tile = chip.querySelector('.tile')!.cloneNode(true);
-      document.querySelectorAll<HTMLElement>('[data-date-refs]').forEach((list) => {
+      if (!chip.dataset.qaTask) document.querySelectorAll<HTMLElement>('[data-date-refs]').forEach((list) => {
         const li = document.createElement('li');
         const a = document.createElement('a');
         a.href = `/o/${s.id}`;

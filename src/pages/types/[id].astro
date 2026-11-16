@@ -109,7 +109,11 @@ const notice = Astro.url.searchParams.get('notice');
             </select>
             <div>
               <input name="p_options" value={(p.options ?? []).join(', ')} placeholder="Options, comma separated" aria-label="Select options"
-                class:list={['field', p.kind !== 'select' && 'hidden']} data-for="select" />
+                class:list={['field', p.kind !== 'select' && p.kind !== 'multiselect' && 'hidden']} data-for="select multiselect" />
+              <select name="p_multiple" aria-label="How many" class:list={['field mb-2', p.kind !== 'relation' && 'hidden']} data-for="relation">
+                <option value="one" selected={!p.multiple}>One object</option>
+                <option value="many" selected={p.multiple}>Several objects</option>
+              </select>
               <select name="p_target" aria-label="Relation target" class:list={['field', p.kind !== 'relation' && 'hidden']} data-for="relation">
                 {types.map((t) => <option value={t.slug} selected={p.target === t.slug}>Links to {t.name}</option>)}
               </select>
@@ -141,7 +145,7 @@ const notice = Astro.url.searchParams.get('notice');
     const rows = document.getElementById('prop-rows');
     const sync = (row) => {
       const kind = row.querySelector('[data-kind]').value;
-      row.querySelectorAll('[data-for]').forEach((el) => el.classList.toggle('hidden', el.dataset.for !== kind));
+      row.querySelectorAll('[data-for]').forEach((el) => el.classList.toggle('hidden', !el.dataset.for.split(' ').includes(kind)));
     };
     // Always keep one empty row at the end for adding a property.
     const ensureBlank = () => {

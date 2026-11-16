@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { strToU8, zipSync } from 'fflate';
 import { exportAll } from '../../lib/db';
 import { frontMatter, toMarkdown } from '../../lib/markdown';
-import type { PropertyDef } from '../../lib/schema';
+import { relationIds, type PropertyDef } from '../../lib/schema';
 
 const fileSafe = (s: string) => s.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120) || 'Untitled';
 
@@ -38,7 +38,9 @@ export const GET: APIRoute = async ({ url }) => {
     const fields: Record<string, unknown> = { id: o.id, workspace: wsName.get(o.workspace_id as string), type: type?.name, title: o.title, created: o.created_at, updated: o.updated_at };
     for (const d of defs) {
       const v = props[d.key];
-      fields[d.label] = d.kind === 'relation' && typeof v === 'string' ? (title.get(v) ? `[[${title.get(v)}]]` : null) : v;
+      fields[d.label] = d.kind === 'relation'
+        ? relationIds(v).map((id) => title.get(id)).filter(Boolean).map((t) => `[[${t}]]`).join(', ') || null
+        : v;
     }
     fields.tags = tagsOf.get(o.id as string) ?? [];
     files[path] = strToU8(frontMatter(fields) + toMarkdown((o.content ?? []) as unknown[], titleOf, url.origin));

@@ -6,7 +6,9 @@ export const KINDS: Record<PropertyKind, string> = {
   number: 'Number',
   date: 'Date',
   url: 'Link',
+  checkbox: 'Checkbox',
   select: 'Select',
+  multiselect: 'Multi-select',
   relation: 'Relation',
 };
 
@@ -33,6 +35,7 @@ export function parseTypeForm(form: FormData, existing: PropertyDef[], validSlug
   const kinds = form.getAll('p_kind').map(String);
   const options = form.getAll('p_options').map(String);
   const targets = form.getAll('p_target').map(String);
+  const multiples = form.getAll('p_multiple').map(String);
   const existingKeys = new Set(existing.map((d) => d.key));
 
   const used = new Set<string>(['title']);
@@ -49,10 +52,11 @@ export function parseTypeForm(form: FormData, existing: PropertyDef[], validSlug
     }
     used.add(key);
     const def: PropertyDef = { key, label, kind };
-    if (kind === 'select') {
+    if (kind === 'select' || kind === 'multiselect') {
       def.options = [...new Set((options[i] ?? '').split(',').map((o) => o.trim()).filter(Boolean))].slice(0, 50);
     }
     if (kind === 'relation' && validSlugs.has(targets[i])) def.target = targets[i];
+    if (kind === 'relation' && multiples[i] === 'many') def.multiple = true;
     properties.push(def);
   });
   // Daily notes: which date property ties this type to a day. Matched by the row's key (existing) or label (new).

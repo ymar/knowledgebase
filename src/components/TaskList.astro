@@ -1,0 +1,76 @@
+---
+/**
+ * Tasks on a daily note: planned for the day, plus (today only) open tasks that are
+ * overdue or due. Always rendered (hidden while empty) so "+ Task" can add rows live.
+ */
+import type { TaskRow } from '../lib/db';
+
+interface Props { planned: TaskRow[]; due: TaskRow[]; today: string }
+const { planned, due, today } = Astro.props;
+const short = (iso: string) => new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
+const empty = planned.length + due.length === 0;
+---
+<section data-tasks aria-labelledby="tasks-h" class:list={['mt-8', empty && 'hidden']}>
+  <h2 id="tasks-h" class="eyebrow mb-3">Tasks</h2>
+  <div class="space-y-4">
+    {[
+      { label: 'Planned', items: planned, key: 'planned' },
+      { label: 'Overdue and due', items: due, key: 'due' },
+    ].map((g) => (
+      <div data-group={g.key} class:list={[g.items.length === 0 && 'hidden']}>
+        {due.length > 0 && <h3 class="mb-1.5 text-xs font-medium text-muted">{g.label}</h3>}
+        <ul data-task-list={g.key} class="divide-y divide-line overflow-hidden rounded-xl border border-line bg-card">
+          {g.items.map((t) => {
+            const late = !t.done && !!t.deadline && t.deadline < today;
+            return (
+              <li class="flex items-center gap-3 px-3.5 py-2.5" data-task={t.id} data-done={t.done ? 'true' : 'false'}>
+                <button type="button" role="checkbox" aria-checked={t.done ? 'true' : 'false'} aria-label={`Done: ${t.title}`} data-toggle
+                  class="task-box flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-ink/30 text-primary-ink transition aria-checked:border-primary aria-checked:bg-primary">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="check"><path d="M20 6 9 17l-5-5" /></svg>
+                </button>
+                <a href={`/o/${t.id}`} class="min-w-0 flex-1 truncate text-[15px] hover:underline" data-title>{t.title || 'Untitled'}</a>
+                {t.deadline && (
+                  <span class:list={['shrink-0 rounded-md px-1.5 py-0.5 text-xs', late ? 'bg-red-500/10 text-red-600' : t.deadline === today && !t.done ? 'bg-amber-500/10 text-amber-700' : 'bg-panel text-muted']}>
+                    Due {short(t.deadline)}
+                  </span>
+                )}
+                {!t.deadline && t.date && t.date < today && !t.done && (
+                  <span class="shrink-0 rounded-md bg-panel px-1.5 py-0.5 text-xs text-muted">From {short(t.date)}</span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    ))}
+  </div>
+</section>
+
+<style is:global>
+  [data-task][data-done='true'] [data-title] { text-decoration: line-through; color: var(--muted); }
+  [data-task] .check { opacity: 0; }
+  [data-task][data-done='true'] .check { opacity: 1; }
+</style>
+
+<script>
+  // One listener for all rows, including ones added later by "+ Task".
+  document.querySelectorAll<HTMLElement>('[data-tasks]').forEach((section) => {
+    section.addEventListener('click', async (e) => {
+      const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-toggle]');
+      const row = btn?.closest<HTMLElement>('[data-task]');
+      if (!btn || !row) return;
+      const next = row.dataset.done !== 'true';
+      const set = (v: boolean) => {
+        row.dataset.done = String(v);
+        btn.setAttribute('aria-checked', String(v));
+      };
+      set(next);
+      const res = await fetch(`/api/objects/${row.dataset.task}/done`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ value: next }),
+      });
+      if (!res.ok) set(!next);
+    });
+  });
+</script>

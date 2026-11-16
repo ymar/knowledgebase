@@ -6,6 +6,7 @@ import Icon from '../../../components/Icon.astro';
 import { getSummaries, getTypeBySlug, queryObjects, recentlyOpened } from '../../../lib/db';
 import { OPS, SORTS, readListParams, withParams } from '../../../lib/list-params';
 import { setWorkspaceCookie } from '../../../lib/workspace';
+import { relationIds } from '../../../lib/schema';
 import DatePicker from '../../../components/DatePicker.astro';
 import { requestTimeZone, todayIn } from '../../../lib/format';
 import { dayLabel } from '../../../lib/format';
@@ -36,7 +37,7 @@ const [items, recent] = await Promise.all([
   plain ? recentlyOpened(Astro.locals.workspace.id, 4, type.id) : Promise.resolve([]),
 ]);
 
-const relIds = items.flatMap((o) => defs.filter((d) => d.kind === 'relation').map((d) => o.properties[d.key]))
+const relIds = items.flatMap((o) => defs.filter((d) => d.kind === 'relation').flatMap((d) => relationIds(o.properties[d.key])))
   .filter((v): v is string => typeof v === 'string' && v !== '');
 const relTitles = Object.fromEntries(Object.values(await getSummaries([...new Set(relIds)])).map((s) => [s.id, s.title]));
 

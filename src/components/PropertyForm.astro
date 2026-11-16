@@ -1,5 +1,5 @@
 ---
-import type { ObjectRow, PropertyDef, ObjectSummary } from '../lib/schema';
+import { relationIds, type ObjectRow, type PropertyDef, type ObjectSummary } from '../lib/schema';
 import DatePicker from './DatePicker.astro';
 interface Props {
   object: ObjectRow;
@@ -8,6 +8,7 @@ interface Props {
 }
 const { object, defs, relationOptions } = Astro.props;
 const val = (k: string) => object.properties[k] ?? '';
+const list = (k: string): string[] => relationIds(object.properties[k]);
 ---
 {defs.length > 0 && (
   <form method="post" action={`/api/objects/${object.id}`} class="rounded-xl border border-line bg-card p-4 sm:p-5">
@@ -17,7 +18,43 @@ const val = (k: string) => object.properties[k] ?? '';
         <>
           <dt><label for={`p_${d.key}`} class="text-sm text-muted">{d.label}</label></dt>
           <dd class="mb-2 sm:mb-0">
-            {d.kind === 'select' ? (
+            {d.kind === 'checkbox' ? (
+              <label class="inline-flex cursor-pointer items-center gap-2 py-1.5 text-sm">
+                <input type="hidden" name={`p_${d.key}`} value="false" />
+                <input id={`p_${d.key}`} type="checkbox" name={`p_${d.key}`} value="true" checked={val(d.key) === true}
+                  class="h-5 w-5 rounded border-line accent-[var(--primary)]" />
+                <span class="text-muted">{d.label}</span>
+              </label>
+            ) : d.kind === 'multiselect' ? (
+              <div id={`p_${d.key}`} class="flex flex-wrap gap-1.5" role="group" aria-label={d.label}>
+                {(d.options ?? []).map((o) => (
+                  <label class="cursor-pointer">
+                    <input type="checkbox" name={`p_${d.key}`} value={o} checked={list(d.key).includes(o)} class="peer sr-only" />
+                    <span class="inline-block rounded-lg border border-line px-2.5 py-1 text-sm text-muted transition peer-checked:border-ink/40 peer-checked:bg-hover peer-checked:text-ink peer-focus-visible:ring-2 peer-focus-visible:ring-ink">{o}</span>
+                  </label>
+                ))}
+                {(d.options ?? []).length === 0 && <span class="text-sm text-muted">No options yet. Add them in the type editor.</span>}
+              </div>
+            ) : d.kind === 'relation' && d.multiple ? (
+              <div data-multi-rel={`p_${d.key}`} class="flex flex-wrap items-center gap-1.5">
+                {list(d.key).map((id) => {
+                  const o = (relationOptions[d.key] ?? []).find((x) => x.id === id);
+                  return o && (
+                    <span class="mention" style={`--c:${o.type_color}`} data-chip>
+                      <input type="hidden" name={`p_${d.key}`} value={id} />
+                      {o.title || 'Untitled'}
+                      <button type="button" data-remove aria-label={`Remove ${o.title}`} class="ml-0.5 text-muted hover:text-ink">×</button>
+                    </span>
+                  );
+                })}
+                <select id={`p_${d.key}`} aria-label={`Add to ${d.label}`} class="field w-auto py-1.5 text-sm" data-add>
+                  <option value="">+ Add…</option>
+                  {(relationOptions[d.key] ?? []).filter((o) => o.id !== object.id).map((o) => (
+                    <option value={o.id} data-color={o.type_color}>{o.title || 'Untitled'}</option>
+                  ))}
+                </select>
+              </div>
+            ) : d.kind === 'select' ? (
               <select id={`p_${d.key}`} name={`p_${d.key}`} class="field">
                 <option value="">Empty</option>
                 {(d.options ?? []).map((o) => <option value={o} selected={val(d.key) === o}>{o}</option>)}
@@ -28,7 +65,7 @@ const val = (k: string) => object.properties[k] ?? '';
               <select id={`p_${d.key}`} name={`p_${d.key}`} class="field">
                 <option value="">Empty</option>
                 {(relationOptions[d.key] ?? []).filter((o) => o.id !== object.id).map((o) => (
-                  <option value={o.id} selected={val(d.key) === o.id}>{o.title || 'Untitled'}</option>
+                  <option value={o.id} selected={list(d.key)[0] === o.id}>{o.title || 'Untitled'}</option>
                 ))}
               </select>
             ) : (
@@ -52,3 +89,38 @@ const val = (k: string) => object.properties[k] ?? '';
     </div>
   </form>
 )}
+
+<script>
+  // Multi-object relations: chips with hidden inputs; "+ Add…" appends one, × removes one.
+  document.querySelectorAll<HTMLElement>('[data-multi-rel]').forEach((box) => {
+    const name = box.dataset.multiRel!;
+    const add = box.querySelector('[data-add]') as unknown as HTMLSelectElement;
+    box.addEventListener('click', (e) => {
+      const btn = (e.target as HTMLElement).closest('[data-remove]');
+      if (btn) btn.closest('[data-chip]')?.remove();
+    });
+    add.addEventListener('change', () => {
+      const opt = add.selectedOptions[0];
+      add.value = '';
+      if (!opt?.value || box.querySelector(`input[value="${CSS.escape(opt.value)}"]`)) return;
+      const chip = document.createElement('span');
+      chip.className = 'mention';
+      chip.dataset.chip = '';
+      chip.style.setProperty('--c', opt.dataset.color ?? '#78716c');
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = name;
+      input.value = opt.value;
+      const x = document.createElement('button');
+      x.type = 'button';
+      x.dataset.remove = '';
+      x.className = 'ml-0.5 text-muted hover:text-ink';
+      x.setAttribute('aria-label', `Remove ${opt.text}`);
+      x.textContent = '×';
+      chip.appendChild(input);
+      chip.appendChild(document.createTextNode(opt.text));
+      chip.appendChild(x);
+      box.insertBefore(chip, add as unknown as Node);
+    });
+  });
+</script>

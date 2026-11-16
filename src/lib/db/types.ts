@@ -132,8 +132,9 @@ export async function updateType(
         .prepare(
           `INSERT OR IGNORE INTO links (source_id, target_id, origin, created_at)
            SELECT o.id, t.id, 'property', ?
-           FROM objects o JOIN objects t ON t.id = json_extract(o.properties, ?) AND t.deleted_at IS NULL
-             AND t.workspace_id = o.workspace_id
+           FROM objects o
+           JOIN json_each(o.properties, ?) v
+           JOIN objects t ON t.id = v.value AND t.deleted_at IS NULL AND t.workspace_id = o.workspace_id
            WHERE o.type_id = ? AND o.deleted_at IS NULL AND t.id != o.id`,
         )
         .bind(now, `$."${key}"`, id),

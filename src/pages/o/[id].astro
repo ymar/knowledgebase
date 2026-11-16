@@ -11,6 +11,7 @@ import {
   allTags, getTypeById, getTypeBySlug, getObject, listObjectsByType, listTypes, markOpened, pickedTags,
 } from '../../lib/db';
 import { editorProps } from '../../lib/editor-props';
+import { isTaskType } from '../../lib/db/tasks';
 import { unlinkedMentions } from '../../lib/unlinked';
 import { setWorkspaceCookie } from '../../lib/workspace';
 import type { ObjectSummary } from '../../lib/schema';
@@ -146,7 +147,7 @@ const notice = Astro.url.searchParams.get('notice');
   )}
 
   <div class="mt-8">
-    <Editor client:only="react" saveUrl={`/api/objects/${object.id}/content`} workspaceId={object.workspace_id} initialContent={object.content} refs={refs} types={types} selfId={object.id} />
+    <Editor client:only="react" saveUrl={`/api/objects/${object.id}/content`} workspaceId={object.workspace_id} taskTypeId={types.find((t) => isTaskType(t.id) && t.enabled)?.id ?? null} initialContent={object.content} refs={refs} types={types} selfId={object.id} />
   </div>
 
   {!isTag && <Backlinks targetId={object.id} targetTitle={object.title} />}

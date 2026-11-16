@@ -17,6 +17,14 @@ export const DEFAULT_TYPES: {
 }[] = [
   { id: 'type_note', name: 'Note', slug: 'note', icon: 'file-text', color: '#2563eb', sort: 1, properties: [] },
   {
+    id: 'type_task', name: 'Task', slug: 'task', icon: 'check-square', color: '#0f766e', sort: 2, dayKey: 'date',
+    properties: [
+      { key: 'done', label: 'Done', kind: 'checkbox' },
+      { key: 'date', label: 'Date', kind: 'date' },
+      { key: 'deadline', label: 'Deadline', kind: 'date' },
+    ],
+  },
+  {
     id: 'type_person', name: 'Person', slug: 'person', icon: 'user', color: '#e11d48', sort: 3,
     properties: [
       { key: 'email', label: 'Email', kind: 'text' },

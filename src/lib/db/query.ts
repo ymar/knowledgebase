@@ -54,6 +54,29 @@ export async function queryObjects(opts: {
       kind = def.kind;
     }
     const v = f.value.trim();
+    const def = defs.get(f.key);
+
+    // Checkbox: "is" yes/no (unset counts as no).
+    if (def?.kind === 'checkbox') {
+      if (f.op === 'is' || f.op === 'empty' || f.op === 'not_empty') {
+        const yes = f.op === 'not_empty' || (f.op === 'is' && /^(y|yes|true|1|done|checked)$/i.test(v));
+        where.push(`COALESCE(json_extract(o.properties, ?), 0) = ?`);
+        args.push(`$."${def.key}"`, yes ? 1 : 0);
+      }
+      continue;
+    }
+    // Multi-select and relations: match any element (a single value counts as a list of one).
+    if ((def?.kind === 'multiselect' || def?.kind === 'relation') && (f.op === 'is' || f.op === 'contains') && v) {
+      where.push(`EXISTS (SELECT 1 FROM json_each(o.properties, ?) e WHERE e.value ${f.op === 'is' ? '= ? COLLATE NOCASE' : "LIKE ? ESCAPE '\\'"})`);
+      args.push(`$."${def.key}"`, f.op === 'is' ? v : `%${v.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
+      continue;
+    }
+    if ((def?.kind === 'multiselect' || (def?.kind === 'relation' && def.multiple)) && (f.op === 'empty' || f.op === 'not_empty')) {
+      where.push(`COALESCE(json_array_length(o.properties, ?), 0) ${f.op === 'empty' ? '=' : '>'} 0`);
+      args.push(`$."${def.key}"`);
+      continue;
+    }
+
     switch (f.op) {
       case 'empty':
         where.push(`(${expr} IS NULL OR ${expr} = '')`);
