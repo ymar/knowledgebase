@@ -18,6 +18,8 @@ export interface TypeInfo {
   name: string;
   icon: string;
   color: string;
+  /** Turned-off types still render chips but aren't offered for inline create. */
+  enabled?: boolean;
 }
 export interface RefInfo {
   title: string;
@@ -287,7 +289,7 @@ export default function Editor(props: {
       const q = query.trim();
       if (q && !found.some((s) => s.title.toLowerCase() === q.toLowerCase())) {
         for (const t of props.types) {
-          if (t.id === DAY) continue;
+          if (t.id === DAY || t.enabled === false) continue;
           items.push({
             title: `New ${t.name.toLowerCase()} “${q}”`,
             group: 'Create',

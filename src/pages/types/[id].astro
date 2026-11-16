@@ -2,15 +2,27 @@
 import Base from '../../layouts/Base.astro';
 import TypeTile from '../../components/TypeTile.astro';
 import Icon from '../../components/Icon.astro';
-import { countAllOfType, getTypeById, listTypes } from '../../lib/db';
+import { countAllOfType, getTypeById, isSystemType, listTypes } from '../../lib/db';
+import { setWorkspaceCookie } from '../../lib/workspace';
 import { TYPE_COLORS, TYPE_ICONS } from '../../lib/icons';
 import { KINDS } from '../../lib/type-form';
 import type { PropertyDef } from '../../lib/schema';
 
 const type = await getTypeById(Astro.params.id!);
 if (!type) return new Response('Not found', { status: 404 });
-const [types, total] = await Promise.all([listTypes(), countAllOfType(type.id)]);
-const builtIn = type.id.startsWith('type_');
+// A type from another workspace switches to it, like objects do.
+if (type.workspace_id && type.workspace_id !== Astro.locals.workspace.id) {
+  const target = Astro.locals.workspaces.find((w) => w.id === type.workspace_id);
+  if (target) {
+    setWorkspaceCookie(Astro.cookies, target.id);
+    Astro.locals.workspace = target;
+  }
+}
+const [types, total] = await Promise.all([
+  listTypes(type.workspace_id ?? Astro.locals.workspace.id, { includeDisabled: true }),
+  countAllOfType(type.id),
+]);
+const builtIn = type.id.startsWith('type_') || isSystemType(type);
 const blank: PropertyDef = { key: '', label: '', kind: 'text' };
 const rows = [...type.properties, blank];
 const notice = Astro.url.searchParams.get('notice');

@@ -20,6 +20,10 @@ export interface TypeRow {
   sort_order: number;
   /** BlockNote JSON new objects start with. */
   template: unknown[];
+  /** Owning workspace; null for the shared system types (Day, Tag). */
+  workspace_id: string | null;
+  /** Turned on in its workspace. System types are always on. */
+  enabled: boolean;
 }
 
 export type PropertyValue = string | number | null;

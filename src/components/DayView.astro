@@ -29,7 +29,7 @@ const [day, withNotes, activity] = await Promise.all([
 ]);
 // No day object yet: show the Day template. The object is created on first save.
 const initial = day ? day.content : ((await getTypeById('type_day'))?.template ?? []);
-const { refs, types } = await editorProps(initial);
+const { refs, types } = await editorProps(ws, initial);
 const fmt = (iso: string, opt: Intl.DateTimeFormatOptions) =>
   new Intl.DateTimeFormat('en-GB', { ...opt, timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
 ---

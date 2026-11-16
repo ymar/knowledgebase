@@ -42,8 +42,8 @@ for (const d of type.properties) {
   if (target) relationOptions[d.key] = await listObjectsByType(object.workspace_id, target.id, 200);
 }
 const [{ refs, types }, allTypes, tags, tagOptions, unlinked] = await Promise.all([
-  editorProps(object.content),
-  listTypes(),
+  editorProps(object.workspace_id, object.content),
+  listTypes(object.workspace_id),
   isTag ? Promise.resolve([]) : pickedTags(object.id),
   allTags(object.workspace_id),
   unlinkedMentions(object),

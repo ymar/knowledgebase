@@ -42,17 +42,25 @@ Do not copy Capacities assets, icons, logo or wording.
   with byte ranges, a sandbox CSP and `nosniff`. Only images, audio, video, PDF and plain text render inline;
   everything else downloads. R2 access lives in `src/lib/files.ts` only.
 - Type editor (`/types/:id`): property keys are fixed once created, so renaming a label keeps stored values.
-  Saving a type rebuilds its objects' `property` links in the same batch. Built-in types can't be deleted;
+  Saving a type rebuilds its objects' `property` links in the same batch. Starter and system types can't be deleted;
   custom types only when they have no objects at all (trash included, because of the foreign key).
 - Trash (`/trash`): restore, or "Delete forever", the only hard delete. Merging tags rewrites every document
   that mentions the old tag, moves picker links and trashes the old tag, in one batch.
 - Export: `/api/export.json` (all rows, trash included, plus R2 keys) and `/api/export.zip` (Markdown per object).
 - Workspaces (migration 0006): `objects.workspace_id`, default `ws_personal`; seeded Personal and Work.
-  Types are shared. Every list, search, count, pin, recent, trash and day query takes a workspace id.
+  Every list, search, count, pin, recent, trash and day query takes a workspace id.
   Link inserts only match targets in the source's workspace, so links never cross. The current workspace
   is the `ws` cookie, resolved into `Astro.locals.workspace` by `src/middleware.ts`. The editor sends its
   document's workspace explicitly (`?ws=` / `workspaceId`), so a switch in another tab can't misroute a save.
   Opening an object from another workspace switches to it. Moving objects between workspaces is not built.
+- Types per workspace (migration 0007): `types.workspace_id` (owner) and `types.enabled` (on/off in it).
+  Day and Tag are system types with `workspace_id` NULL: shared, always on, fixed ids. Every other type
+  belongs to one workspace; Work's copies of the starters have ids `type_note__ws_work` etc. and slugs with
+  a workspace suffix (`/t/person-work`), because slugs are unique across the table. New workspaces get
+  their own starter copies (`src/lib/default-types.ts`) in the same batch that creates them. Objects can
+  only be created with, or changed to, a type that belongs to their workspace and is on. Turned-off types
+  vanish from the sidebar and create menus; their objects stay in search, links and backlinks.
+  Opening a type page from another workspace switches to it.
 - `astro dev` runs as a managed background process: stop it with `npx astro dev stop` before `db:reset`.
 
 ## Code rules

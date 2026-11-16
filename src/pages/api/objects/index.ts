@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { createObject, findByTitle, findDay, getSummaries, getTypeById } from '../../../lib/db';
+import { createObject, findByTitle, findDay, getSummaries, getTypeById, typeBelongsTo } from '../../../lib/db';
 import { isIsoDay } from '../../../lib/format';
 import { json } from '../../../lib/http';
 import { TAG_TYPE_ID } from '../../../lib/schema';
@@ -19,7 +19,10 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
   const title = String(input.title ?? '').trim().slice(0, 500);
 
   const type = await getTypeById(typeId);
-  if (!type) return isJson ? json({ error: 'Unknown type' }, 400) : new Response('Unknown type', { status: 400 });
+  if (!type || !typeBelongsTo(type, ws) || !type.enabled) {
+    const msg = !type ? 'Unknown type' : 'That type is not available in this workspace';
+    return isJson ? json({ error: msg }, 400) : new Response(msg, { status: 400 });
+  }
 
   let id: string | null = null;
   if (type.id === 'type_day') {

@@ -1,22 +1,40 @@
 import type { PropertyDef, TypeRow } from '../schema';
 import { db, parseJson } from './index';
 
-interface RawType extends Omit<TypeRow, 'properties' | 'template'> {
+interface RawType extends Omit<TypeRow, 'properties' | 'template' | 'enabled'> {
   properties: string;
   template: string;
+  enabled: number;
 }
 
 const hydrate = (r: RawType): TypeRow => ({
   ...r,
   properties: parseJson<PropertyDef[]>(r.properties, []),
   template: parseJson<unknown[]>(r.template, []),
+  enabled: r.enabled === 1,
 });
 
-export async function listTypes(): Promise<TypeRow[]> {
+/** System types (Day, Tag) are shared by every workspace and always on. */
+export const isSystemType = (t: Pick<TypeRow, 'workspace_id'>): boolean => t.workspace_id === null;
+
+/** The types of one workspace plus the shared system types. Turned-off types only on request. */
+export async function listTypes(ws: string, opts: { includeDisabled?: boolean } = {}): Promise<TypeRow[]> {
   const { results } = await db()
-    .prepare('SELECT * FROM types ORDER BY sort_order, name')
+    .prepare(
+      `SELECT * FROM types WHERE (workspace_id = ? OR workspace_id IS NULL) ${opts.includeDisabled ? '' : 'AND enabled = 1'}
+       ORDER BY sort_order, name`,
+    )
+    .bind(ws)
     .all<RawType>();
   return results.map(hydrate);
+}
+
+/** True when objects of `type` may live in workspace `ws`. */
+export const typeBelongsTo = (type: Pick<TypeRow, 'workspace_id'>, ws: string): boolean =>
+  type.workspace_id === null || type.workspace_id === ws;
+
+export async function setTypeEnabled(id: string, enabled: boolean): Promise<void> {
+  await db().prepare('UPDATE types SET enabled = ? WHERE id = ? AND workspace_id IS NOT NULL').bind(enabled ? 1 : 0, id).run();
 }
 
 export async function getTypeBySlug(slug: string): Promise<TypeRow | null> {
@@ -44,14 +62,28 @@ export async function setTypeTemplate(typeId: string, template: unknown[]): Prom
 
 const nowIso = () => new Date().toISOString();
 
-export async function createType(input: { id: string; name: string; slug: string; icon: string; color: string }): Promise<void> {
+export async function createType(input: {
+  id: string;
+  workspaceId: string;
+  name: string;
+  slug: string;
+  icon: string;
+  color: string;
+}): Promise<void> {
   await db()
     .prepare(
-      `INSERT INTO types (id, name, slug, icon, color, properties, sort_order)
-       VALUES (?, ?, ?, ?, ?, '[]', (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM types))`,
+      `INSERT INTO types (id, workspace_id, name, slug, icon, color, properties, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, '[]', (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM types))`,
     )
-    .bind(input.id, input.name, input.slug, input.icon, input.color)
+    .bind(input.id, input.workspaceId, input.name, input.slug, input.icon, input.color)
     .run();
+}
+
+/** A slug based on `base` that no type uses yet (slugs are unique across workspaces). */
+export async function freeSlug(base: string): Promise<string> {
+  let slug = base;
+  for (let n = 2; await slugTaken(slug); n++) slug = `${base}-${n}`;
+  return slug;
 }
 
 export async function slugTaken(slug: string, exceptId?: string): Promise<boolean> {

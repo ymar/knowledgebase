@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import {
-  addTag, changeType, mergeTags, createObject, findByTitle, getObject, getTypeById, removeTag, renameObject,
+  addTag, changeType, mergeTags, typeBelongsTo, createObject, findByTitle, getObject, getTypeById, removeTag, renameObject,
   saveProperties, setPinned, setTypeTemplate, softDeleteObject,
 } from '../../../lib/db';
 import { parsePropertyForm } from '../../../lib/properties';
@@ -47,7 +47,7 @@ export const POST: APIRoute = async ({ params, request, redirect }) => {
       break;
     case 'change-type': {
       const target = await getTypeById(field('typeId'));
-      if (!target || target.id === type.id || target.id === 'type_day' || type.id === 'type_day') {
+      if (!target || target.id === type.id || target.id === 'type_day' || type.id === 'type_day' || !typeBelongsTo(target, object.workspace_id) || !target.enabled) {
         return new Response('Cannot change to that type', { status: 400 });
       }
       const dropped = (await changeType(id, object.properties, target.id, target.properties))
