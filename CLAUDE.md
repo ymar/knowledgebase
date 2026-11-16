@@ -38,6 +38,15 @@ Do not copy Capacities assets, icons, logo or wording.
   for tag pages and the "Untagged" view.
 - Unlinked mentions "Link" rewrites the source document (first plain-text occurrence becomes a mention) and
   saves it, so the link survives that object's next autosave.
+- Uploads: `POST /api/files` stores in R2 under `<ulid>/<safe-name>` (25 MB max); `/files/<key>` serves them
+  with byte ranges, a sandbox CSP and `nosniff`. Only images, audio, video, PDF and plain text render inline;
+  everything else downloads. R2 access lives in `src/lib/files.ts` only.
+- Type editor (`/types/:id`): property keys are fixed once created, so renaming a label keeps stored values.
+  Saving a type rebuilds its objects' `property` links in the same batch. Built-in types can't be deleted;
+  custom types only when they have no objects at all (trash included, because of the foreign key).
+- Trash (`/trash`): restore, or "Delete forever", the only hard delete. Merging tags rewrites every document
+  that mentions the old tag, moves picker links and trashes the old tag, in one batch.
+- Export: `/api/export.json` (all rows, trash included, plus R2 keys) and `/api/export.zip` (Markdown per object).
 - `astro dev` runs as a managed background process: stop it with `npx astro dev stop` before `db:reset`.
 
 ## Code rules
@@ -81,7 +90,7 @@ Phases from the original spec. Status in brackets.
 2. Editor and links [done]: BlockNote with debounced autosave, `@` mention search + inline create,
    backlinks with surrounding text, today's daily note as home with prev/next.
 3. Find things [done]: Cmd+K palette (FTS, jump, create), filter and sort list pages, tag pages.
-4. Files and types: R2 upload from editor, type editor UI, JSON export.
+4. Files and types [done]: R2 upload from editor, type editor UI, JSON export.
 
 ## Gap analysis vs Capacities
 
@@ -119,10 +128,10 @@ Items marked SCHEMA need approval of the SQL before building.
 
 ### Fold into phase 4 (P1)
 
-- [ ] **Trash view**: list soft-deleted objects, restore, and (only here) permanent purge after confirm.
-- [ ] **Merge tags**: move all links from tag A to tag B in one batch, soft-delete A.
-- [ ] **Markdown export** alongside JSON (one `.md` per object, front matter for properties).
-- [ ] **Type color and icon picker** in the type editor (fixed palette + icon set from `Icon.astro`).
+- [x] **Trash view**: list soft-deleted objects, restore, and (only here) permanent purge after confirm.
+- [x] **Merge tags**: move all links from tag A to tag B in one batch, soft-delete A.
+- [x] **Markdown export** alongside JSON (one `.md` per object, front matter for properties).
+- [x] **Type color and icon picker** in the type editor (fixed palette + icon set from `Icon.astro`).
 
 ### After phase 4 (P2)
 

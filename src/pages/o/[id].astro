@@ -36,7 +36,7 @@ const [{ refs, types }, allTypes, tags, tagOptions, unlinked] = await Promise.al
   editorProps(object.content),
   listTypes(),
   isTag ? Promise.resolve([]) : pickedTags(object.id),
-  isTag ? Promise.resolve([]) : allTags(),
+  allTags(),
   unlinkedMentions(object),
 ]);
 const hasTemplate = type.template.length > 0;
@@ -123,6 +123,18 @@ const notice = Astro.url.searchParams.get('notice');
   )}
 
   {isTag && <TaggedList tagId={object.id} tagTitle={object.title} />}
+
+  {isTag && tagOptions.length > 1 && (
+    <form method="post" action={`/api/objects/${object.id}`} class="mt-4 flex flex-wrap items-center gap-2 text-sm"
+      onsubmit={`return confirm('Merge #${object.title.replace(/'/g, '')} into the chosen tag? Everything tagged moves over and this tag goes to the trash.')`}>
+      <input type="hidden" name="_action" value="merge-tag" />
+      <label for="merge-into" class="text-muted"><span class="inline-flex items-center gap-1.5"><Icon name="merge" size={15} /> Merge into</span></label>
+      <select id="merge-into" name="into" class="field w-auto py-1.5">
+        {tagOptions.filter((t) => t.id !== object.id).map((t) => <option value={t.id}>#{t.title}</option>)}
+      </select>
+      <button class="btn py-1.5" type="submit">Merge</button>
+    </form>
+  )}
 
   <div class="mt-8">
     <Editor client:only="react" saveUrl={`/api/objects/${object.id}/content`} initialContent={object.content} refs={refs} types={types} selfId={object.id} />

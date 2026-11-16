@@ -185,3 +185,16 @@ export function linkFirstOccurrence(blocks: Block[], title: string, mention: Men
   visit(doc);
   return done ? doc : null;
 }
+
+/** Points every mention of `fromId` at `to` instead. Returns a new document. */
+export function replaceMentions(blocks: Block[], fromId: string, to: MentionProps): Block[] {
+  const doc = structuredClone(blocks);
+  const fix = (items: Inline[]) => {
+    for (const it of items) {
+      if (it.type === MENTION && it.props?.id === fromId) it.props = { ...it.props, ...to };
+      else if (it.type === 'link' && Array.isArray(it.content)) fix(it.content);
+    }
+  };
+  walk(doc, (b) => inlineItems(b).forEach(fix));
+  return doc;
+}

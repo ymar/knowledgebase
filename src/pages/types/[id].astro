@@ -1,0 +1,138 @@
+---
+import Base from '../../layouts/Base.astro';
+import TypeTile from '../../components/TypeTile.astro';
+import Icon from '../../components/Icon.astro';
+import { countAllOfType, getTypeById, listTypes } from '../../lib/db';
+import { TYPE_COLORS, TYPE_ICONS } from '../../lib/icons';
+import { KINDS } from '../../lib/type-form';
+import type { PropertyDef } from '../../lib/schema';
+
+const type = await getTypeById(Astro.params.id!);
+if (!type) return new Response('Not found', { status: 404 });
+const [types, total] = await Promise.all([listTypes(), countAllOfType(type.id)]);
+const builtIn = type.id.startsWith('type_');
+const blank: PropertyDef = { key: '', label: '', kind: 'text' };
+const rows = [...type.properties, blank];
+const notice = Astro.url.searchParams.get('notice');
+---
+<Base title={`${type.name} type`} activeTypeId={type.id}>
+  <a href="/types" class="text-sm text-muted hover:text-ink">← Types</a>
+  <div class="mt-3 flex items-center gap-4">
+    <TypeTile icon={type.icon} color={type.color} size="lg" />
+    <h1 class="text-3xl font-bold tracking-tight md:text-4xl">{type.name}</h1>
+    <a href={`/t/${type.slug}`} class="btn ml-auto">Open list</a>
+  </div>
+  {notice && <p role="status" class="mt-4 rounded-lg border border-line bg-card px-3 py-2 text-sm text-muted">{notice}</p>}
+
+  <form method="post" action={`/api/types/${type.id}`} class="mt-8 space-y-8" id="type-form">
+    <input type="hidden" name="_action" value="save" />
+
+    <section class="space-y-4 rounded-xl border border-line bg-card p-4 sm:p-5">
+      <label class="block">
+        <span class="mb-1 block text-sm text-muted">Name</span>
+        <input name="name" value={type.name} required class="field" />
+      </label>
+
+      <fieldset>
+        <legend class="mb-2 text-sm text-muted">Icon</legend>
+        <div class="flex flex-wrap gap-1.5">
+          {TYPE_ICONS.map((i) => (
+            <label class="cursor-pointer">
+              <input type="radio" name="icon" value={i} checked={type.icon === i} class="peer sr-only" />
+              <span class="flex h-10 w-10 items-center justify-center rounded-lg border border-transparent text-muted hover:bg-hover peer-checked:border-ink peer-checked:text-ink peer-focus-visible:ring-2 peer-focus-visible:ring-ink" title={i}>
+                <Icon name={i} size={18} />
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend class="mb-2 text-sm text-muted">Color</legend>
+        <div class="flex flex-wrap gap-2">
+          {TYPE_COLORS.map((c) => (
+            <label class="cursor-pointer">
+              <input type="radio" name="color" value={c} checked={type.color === c} class="peer sr-only" />
+              <span class="block h-8 w-8 rounded-full ring-offset-2 ring-offset-card peer-checked:ring-2 peer-checked:ring-ink peer-focus-visible:ring-2 peer-focus-visible:ring-ink" style={`background:${c}`} title={c}></span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+    </section>
+
+    <section>
+      <h2 class="eyebrow mb-3">Properties</h2>
+      <ol class="space-y-2" id="prop-rows">
+        {rows.map((p) => (
+          <li class="prop-row grid grid-cols-2 gap-2 rounded-xl border border-line bg-card p-3 sm:grid-cols-[1.3fr_1fr_1.4fr_auto] sm:items-center">
+            <input type="hidden" name="p_key" value={p.key} />
+            <input name="p_label" value={p.label} placeholder={p.key ? 'Label' : 'New property…'} aria-label="Property label" class="field" />
+            <div class="flex justify-end gap-1 sm:order-last">
+              <button type="button" class="btn px-2" data-move="-1" aria-label="Move up"><Icon name="chevron-up" size={15} /></button>
+              <button type="button" class="btn px-2" data-move="1" aria-label="Move down"><Icon name="chevron-down" size={15} /></button>
+              <button type="button" class="btn px-2" data-remove aria-label="Remove property"><Icon name="x" size={15} /></button>
+            </div>
+            <select name="p_kind" class="field" aria-label="Kind" data-kind>
+              {Object.entries(KINDS).map(([k, label]) => <option value={k} selected={p.kind === k}>{label}</option>)}
+            </select>
+            <div>
+              <input name="p_options" value={(p.options ?? []).join(', ')} placeholder="Options, comma separated" aria-label="Select options"
+                class:list={['field', p.kind !== 'select' && 'hidden']} data-for="select" />
+              <select name="p_target" aria-label="Relation target" class:list={['field', p.kind !== 'relation' && 'hidden']} data-for="relation">
+                {types.map((t) => <option value={t.slug} selected={p.target === t.slug}>Links to {t.name}</option>)}
+              </select>
+            </div>
+          </li>
+        ))}
+      </ol>
+      <p class="mt-2 text-xs text-muted">Removing a property hides it; values already stored on objects are kept.</p>
+    </section>
+
+    <div class="flex justify-end">
+      <button class="btn-primary" type="submit">Save type</button>
+    </div>
+  </form>
+
+  {!builtIn && (
+    <form method="post" action={`/api/types/${type.id}`} class="mt-12 border-t border-line pt-6"
+      onsubmit="return confirm('Delete this type?')">
+      <input type="hidden" name="_action" value="delete" />
+      <button class="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-muted hover:bg-hover hover:text-red-600 disabled:opacity-50"
+        type="submit" disabled={total > 0}>
+        <Icon name="trash" size={15} /> Delete type
+      </button>
+      {total > 0 && <p class="mt-1 text-xs text-muted">Only possible with no objects of this type, including the trash ({total}).</p>}
+    </form>
+  )}
+
+  <script is:inline>
+    const rows = document.getElementById('prop-rows');
+    const sync = (row) => {
+      const kind = row.querySelector('[data-kind]').value;
+      row.querySelectorAll('[data-for]').forEach((el) => el.classList.toggle('hidden', el.dataset.for !== kind));
+    };
+    // Always keep one empty row at the end for adding a property.
+    const ensureBlank = () => {
+      const last = rows.lastElementChild;
+      if (last && last.querySelector('[name=p_label]').value.trim() === '') return;
+      const row = rows.firstElementChild.cloneNode(true);
+      row.querySelectorAll('input').forEach((i) => (i.value = ''));
+      row.querySelector('[name=p_label]').placeholder = 'New property…';
+      row.querySelector('[data-kind]').value = 'text';
+      sync(row);
+      rows.appendChild(row);
+    };
+    rows.addEventListener('change', (e) => { const row = e.target.closest('.prop-row'); if (e.target.matches('[data-kind]')) sync(row); });
+    rows.addEventListener('input', (e) => { if (e.target.name === 'p_label') ensureBlank(); });
+    rows.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      const row = btn.closest('.prop-row');
+      if (btn.hasAttribute('data-remove')) {
+        if (rows.children.length > 1) row.remove(); else row.querySelectorAll('input').forEach((i) => (i.value = ''));
+        ensureBlank();
+      } else if (btn.dataset.move === '-1' && row.previousElementSibling) rows.insertBefore(row, row.previousElementSibling);
+      else if (btn.dataset.move === '1' && row.nextElementSibling) rows.insertBefore(row.nextElementSibling, row);
+    });
+  </script>
+</Base>

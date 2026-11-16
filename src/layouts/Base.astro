@@ -89,7 +89,18 @@ const paletteTypes = types.map((t) => ({ id: t.id, name: t.name, slug: t.slug, i
           ))}
         </ul>
 
-        <p class="mt-8 space-y-1 px-2 text-xs text-muted">
+        <ul class="mt-6 space-y-0.5 border-t border-line pt-4">
+          {[['/types', 'sliders', 'Types'], ['/trash', 'archive', 'Trash'], ['/export', 'download', 'Export']].map(([href, icon, label]) => (
+            <li>
+              <a href={href} aria-current={Astro.url.pathname.startsWith(href) ? 'page' : undefined}
+                class="flex items-center gap-3 rounded-lg px-2 py-1.5 text-sm text-ink/70 hover:bg-hover aria-[current=page]:bg-card aria-[current=page]:text-ink aria-[current=page]:shadow-xs">
+                <span class="flex h-6 w-6 items-center justify-center text-muted"><Icon name={icon} size={16} /></span>{label}
+              </a>
+            </li>
+          ))}
+        </ul>
+
+        <p class="mt-6 space-y-1 px-2 text-xs text-muted">
           <span class="block"><kbd>⌘K</kbd> search and commands</span>
           <span class="block"><kbd>n</kbd> new object on a type page</span>
         </p>

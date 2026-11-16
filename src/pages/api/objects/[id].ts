@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import {
-  addTag, changeType, createObject, findByTitle, getObject, getTypeById, removeTag, renameObject,
+  addTag, changeType, mergeTags, createObject, findByTitle, getObject, getTypeById, removeTag, renameObject,
   saveProperties, setPinned, setTypeTemplate, softDeleteObject,
 } from '../../../lib/db';
 import { parsePropertyForm } from '../../../lib/properties';
@@ -56,6 +56,16 @@ export const POST: APIRoute = async ({ params, request, redirect }) => {
     case 'link-mention':
       if (!(await linkMention(object, field('source')))) return back('That mention is no longer there.');
       break;
+    case 'merge-tag': {
+      if (type.id !== TAG_TYPE_ID) break;
+      const into = field('into');
+      try {
+        await mergeTags(id, into);
+      } catch (e) {
+        return back((e as Error).message);
+      }
+      return redirect(`/o/${into}?notice=${encodeURIComponent(`Merged #${object.title} into this tag.`)}`, 303);
+    }
     case 'delete':
       await softDeleteObject(id);
       return redirect(type.id === 'type_day' ? '/' : `/t/${type.slug}`, 303);

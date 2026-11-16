@@ -21,3 +21,6 @@ export * from './days';
 export * from './search';
 export * from './query';
 export * from './tags';
+export * from './trash';
+export * from './merge';
+export * from './export';

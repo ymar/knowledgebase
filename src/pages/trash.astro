@@ -1,0 +1,40 @@
+---
+import Base from '../layouts/Base.astro';
+import TypeTile from '../components/TypeTile.astro';
+import Icon from '../components/Icon.astro';
+import { listTrash } from '../lib/db';
+import { dayLabel, shortDate } from '../lib/format';
+
+const items = await listTrash();
+const notice = Astro.url.searchParams.get('notice');
+---
+<Base title="Trash">
+  <h1 class="text-3xl font-bold tracking-tight md:text-4xl">Trash</h1>
+  <p class="mt-2 text-muted">Deleted objects stay here until you remove them for good.</p>
+  {notice && <p role="status" class="mt-4 rounded-lg border border-line bg-card px-3 py-2 text-sm text-muted">{notice}</p>}
+
+  {items.length === 0 ? (
+    <p class="mt-8 rounded-xl border border-dashed border-line px-6 py-10 text-center text-sm text-muted">The trash is empty.</p>
+  ) : (
+    <ul class="mt-8 divide-y divide-line overflow-hidden rounded-xl border border-line bg-card">
+      {items.map((o) => (
+        <li class="flex flex-wrap items-center gap-3 px-4 py-3">
+          <TypeTile icon={o.type_icon} color={o.type_color} size="sm" />
+          <span class="min-w-0 flex-1">
+            <span class="block truncate text-[15px]">{o.type_id === 'type_day' ? dayLabel(o.title) : o.title || 'Untitled'}</span>
+            <span class="block text-xs text-muted">{o.type_name} · deleted {shortDate(o.deleted_at)}</span>
+          </span>
+          <form method="post" action={`/api/trash/${o.id}`}>
+            <input type="hidden" name="_action" value="restore" />
+            <button class="btn px-2.5 py-1" type="submit"><Icon name="rotate-ccw" size={14} /> Restore</button>
+          </form>
+          <form method="post" action={`/api/trash/${o.id}`}
+            onsubmit="return confirm('Remove this object for good? Links to it disappear and this can’t be undone.')">
+            <input type="hidden" name="_action" value="purge" />
+            <button class="rounded-lg px-2.5 py-1 text-sm text-muted hover:bg-hover hover:text-red-600" type="submit">Delete forever</button>
+          </form>
+        </li>
+      ))}
+    </ul>
+  )}
+</Base>

@@ -89,11 +89,9 @@ function MentionChip({ id, title, typeId }: { id: string; title: string; typeId:
 
 const schema = BlockNoteSchema.create({
   blockSpecs: {
-    ...Object.fromEntries(
-      Object.entries(defaultBlockSpecs).filter(([k]) => !['audio', 'video', 'file'].includes(k)),
-    ),
+    ...defaultBlockSpecs,
     codeBlock: createCodeBlockSpec(codeBlockOptions),
-  } as Omit<typeof defaultBlockSpecs, 'audio' | 'video' | 'file'>,
+  },
   inlineContentSpecs: { ...defaultInlineContentSpecs, mention: Mention },
 });
 
@@ -132,6 +130,19 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/** Uploads to R2 through the app; BlockNote stores the returned URL in the block. */
+async function uploadFile(file: File): Promise<string> {
+  const body = new FormData();
+  body.append('file', file);
+  const res = await fetch('/api/files', { method: 'POST', body });
+  const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+  if (!res.ok || !data.url) {
+    alert(data.error ?? 'Upload failed');
+    throw new Error(data.error ?? 'Upload failed');
+  }
+  return data.url;
+}
+
 /* ---------- editor ---------- */
 
 type SaveState = 'saved' | 'dirty' | 'saving' | 'error';
@@ -150,6 +161,7 @@ export default function Editor(props: {
   const editor = useCreateBlockNote({
     schema,
     extensions: [syntaxHighlighter],
+    uploadFile,
     initialContent: props.initialContent.length ? (props.initialContent as never) : undefined,
     placeholders: { emptyDocument: 'Start writing. Type @ to link, # to tag, / for blocks.', default: "Type '/' for blocks" },
   });

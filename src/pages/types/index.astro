@@ -1,0 +1,36 @@
+---
+import Base from '../../layouts/Base.astro';
+import TypeTile from '../../components/TypeTile.astro';
+import Icon from '../../components/Icon.astro';
+import { countByType, listTypes } from '../../lib/db';
+
+const [types, counts] = await Promise.all([listTypes(), countByType()]);
+const error = Astro.url.searchParams.get('error');
+---
+<Base title="Types">
+  <h1 class="text-3xl font-bold tracking-tight md:text-4xl">Types</h1>
+  <p class="mt-2 text-muted">What kinds of objects you keep, and the properties each one has.</p>
+
+  <form method="post" action="/api/types" class="mt-8 flex gap-2">
+    <input name="name" required autocomplete="off" placeholder="New type, e.g. Recipe" aria-label="New type name" class="field flex-1" data-new-object />
+    <button class="btn-primary" type="submit"><Icon name="plus" size={16} /> <span class="hidden sm:inline">Create type</span></button>
+  </form>
+  {error && <p role="alert" class="mt-2 text-sm text-red-600">{error}</p>}
+
+  <ul class="mt-6 divide-y divide-line overflow-hidden rounded-xl border border-line bg-card">
+    {types.map((t) => (
+      <li>
+        <a href={`/types/${t.id}`} class="flex items-center gap-3 px-4 py-3.5 hover:bg-hover">
+          <TypeTile icon={t.icon} color={t.color} />
+          <span class="min-w-0 flex-1">
+            <span class="block font-medium">{t.name}</span>
+            <span class="block truncate text-xs text-muted">
+              {t.properties.length ? t.properties.map((p) => p.label).join(' · ') : 'No properties'}
+            </span>
+          </span>
+          <span class="text-xs tabular-nums text-muted">{counts[t.id] ?? 0}</span>
+        </a>
+      </li>
+    ))}
+  </ul>
+</Base>

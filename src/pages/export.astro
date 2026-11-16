@@ -1,0 +1,19 @@
+---
+import Base from '../layouts/Base.astro';
+import Icon from '../components/Icon.astro';
+---
+<Base title="Export">
+  <h1 class="text-3xl font-bold tracking-tight md:text-4xl">Export</h1>
+  <p class="mt-2 text-muted">Take everything with you. Files stay in storage and are linked by URL.</p>
+
+  <div class="mt-8 grid gap-3 sm:grid-cols-2">
+    <a href="/api/export.json" class="card flex flex-col gap-2 p-5" download>
+      <span class="flex items-center gap-2 font-semibold"><Icon name="download" size={18} /> JSON</span>
+      <span class="text-sm text-muted">Every type, object (trash included), link and stored file, exactly as saved. Use it for backups.</span>
+    </a>
+    <a href="/api/export.zip" class="card flex flex-col gap-2 p-5" download>
+      <span class="flex items-center gap-2 font-semibold"><Icon name="download" size={18} /> Markdown</span>
+      <span class="text-sm text-muted">A zip with a folder per type and one file per object. Properties and tags go in front matter, links become [[wiki links]].</span>
+    </a>
+  </div>
+</Base>

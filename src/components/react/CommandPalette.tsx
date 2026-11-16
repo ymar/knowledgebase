@@ -148,6 +148,11 @@ export default function CommandPalette({ types }: { types: PaletteType[] }) {
         out.push({ key: `t:${t.id}`, group: 'Go to', label: t.name, detail: 'Type', icon: t, run: go(`/t/${t.slug}`) });
       }
     }
+    for (const [label, url, icon] of [['Types', '/types', 'sliders'], ['Trash', '/trash', 'archive'], ['Export', '/export', 'download']]) {
+      if (query && label.toLowerCase().startsWith(lower)) {
+        out.push({ key: `p:${url}`, group: 'Go to', label, detail: 'Page', icon: { icon, color: '#78716c' }, run: go(url) });
+      }
+    }
     if (query) {
       for (const t of types) {
         if (t.id === DAY) continue;
