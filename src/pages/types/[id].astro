@@ -72,6 +72,26 @@ const notice = Astro.url.searchParams.get('notice');
       </fieldset>
     </section>
 
+    {!isSystemType(type) && (
+      <section class="rounded-xl border border-line bg-card p-4 sm:p-5">
+        <label class="block">
+          <span class="mb-1 block text-sm font-medium">Daily notes</span>
+          <span class="mb-2 block text-sm text-muted">
+            Show a “+ {type.name}” button on daily notes. It fills this date property with the day, and the object is listed under that day's date references.
+          </span>
+          <select name="day_key" class="field">
+            <option value="">Don't show on daily notes</option>
+            {type.properties.filter((p) => p.kind === 'date').map((p) => (
+              <option value={p.key} selected={type.day_key === p.key}>Use “{p.label}”</option>
+            ))}
+          </select>
+          {!type.properties.some((p) => p.kind === 'date') && (
+            <span class="mt-1.5 block text-xs text-muted">Add a property of kind Date below and save, then pick it here.</span>
+          )}
+        </label>
+      </section>
+    )}
+
     <section>
       <h2 class="eyebrow mb-3">Properties</h2>
       <ol class="space-y-2" id="prop-rows">

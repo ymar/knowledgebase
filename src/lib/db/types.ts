@@ -113,15 +113,15 @@ export async function slugTaken(slug: string, exceptId?: string): Promise<boolea
  */
 export async function updateType(
   id: string,
-  input: { name: string; icon: string; color: string; properties: PropertyDef[] },
+  input: { name: string; icon: string; color: string; properties: PropertyDef[]; dayKey: string | null },
 ): Promise<void> {
   const d = db();
   const now = nowIso();
   const relationKeys = input.properties.filter((p) => p.kind === 'relation').map((p) => p.key);
   await d.batch([
     d
-      .prepare('UPDATE types SET name = ?, icon = ?, color = ?, properties = ? WHERE id = ?')
-      .bind(input.name, input.icon, input.color, JSON.stringify(input.properties), id),
+      .prepare('UPDATE types SET name = ?, icon = ?, color = ?, properties = ?, day_key = ? WHERE id = ?')
+      .bind(input.name, input.icon, input.color, JSON.stringify(input.properties), input.dayKey, id),
     d
       .prepare(
         "DELETE FROM links WHERE origin = 'property' AND source_id IN (SELECT id FROM objects WHERE type_id = ?)",

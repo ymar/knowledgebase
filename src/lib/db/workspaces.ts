@@ -34,10 +34,10 @@ export async function createWorkspace(id: string, name: string, color: string): 
     ...typeRows.map((t) =>
       d
         .prepare(
-          `INSERT INTO types (id, workspace_id, name, slug, icon, color, properties, sort_order, template, enabled)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, '[]', 1)`,
+          `INSERT INTO types (id, workspace_id, name, slug, icon, color, properties, sort_order, template, enabled, day_key)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, '[]', 1, ?)`,
         )
-        .bind(`${t.id}__${id}`, id, t.name, t.slug, t.icon, t.color, JSON.stringify(t.properties), t.sort),
+        .bind(`${t.id}__${id}`, id, t.name, t.slug, t.icon, t.color, JSON.stringify(t.properties), t.sort, t.dayKey ?? null),
     ),
   ]);
 }

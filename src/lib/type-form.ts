@@ -55,5 +55,9 @@ export function parseTypeForm(form: FormData, existing: PropertyDef[], validSlug
     if (kind === 'relation' && validSlugs.has(targets[i])) def.target = targets[i];
     properties.push(def);
   });
-  return { name, icon, color, properties };
+  // Daily notes: which date property ties this type to a day. Matched by the row's key (existing) or label (new).
+  const dayIn = String(form.get('day_key') ?? '');
+  const dayProp = properties.find((p) => p.kind === 'date' && (p.key === dayIn || p.label === dayIn));
+  const dayKey = dayProp && /^[A-Za-z0-9_]+$/.test(dayProp.key) ? dayProp.key : null;
+  return { name, icon, color, properties, dayKey };
 }

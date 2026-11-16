@@ -12,7 +12,7 @@ import { resolveWs } from '../../../lib/workspace';
 export const POST: APIRoute = async ({ request, redirect, locals }) => {
   const isJson = request.headers.get('content-type')?.includes('application/json');
   const input = isJson
-    ? ((await request.json().catch(() => ({}))) as { typeId?: string; title?: string; workspaceId?: string })
+    ? ((await request.json().catch(() => ({}))) as { typeId?: string; title?: string; workspaceId?: string; date?: string })
     : Object.fromEntries(await request.formData());
   const ws = resolveWs(locals, input.workspaceId ? String(input.workspaceId) : null);
   const typeId = String(input.typeId ?? '');
@@ -33,7 +33,10 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
   } else if (type.id === TAG_TYPE_ID && title) {
     id = await findByTitle(ws, TAG_TYPE_ID, title);
   }
-  id ??= await createObject({ workspaceId: ws, typeId: type.id, title });
+  // Quick add on a daily note: fill the type's daily-note date property with that day.
+  const date = String(input.date ?? '');
+  const properties = type.day_key && isIsoDay(date) ? { [type.day_key]: date } : undefined;
+  id ??= await createObject({ workspaceId: ws, typeId: type.id, title, properties });
 
   if (!isJson) return redirect(`/o/${id}`, 303);
   return json((await getSummaries([id]))[id], 201);

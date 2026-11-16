@@ -8,6 +8,6 @@ if (!isIsoDay(date)) return new Response('Not found', { status: 404 });
 const today = todayIn(requestTimeZone(Astro.request));
 if (date === today) return Astro.redirect('/', 302);
 ---
-<Base title={dayLabel(date)} activeTypeId="type_day">
+<Base title={dayLabel(date)} activeTypeId="type_day" wide>
   <DayView date={date} today={today} />
 </Base>

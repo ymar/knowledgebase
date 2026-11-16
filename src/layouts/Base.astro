@@ -6,8 +6,8 @@ import CommandPalette from '../components/react/CommandPalette';
 import { listTypes, countByType, listPinned } from '../lib/db';
 import { dayLabel } from '../lib/format';
 
-interface Props { title?: string; activeTypeId?: string; activeObjectId?: string; home?: boolean }
-const { title = 'KB', activeTypeId, activeObjectId, home = false } = Astro.props;
+interface Props { title?: string; activeTypeId?: string; activeObjectId?: string; home?: boolean; wide?: boolean }
+const { title = 'KB', activeTypeId, activeObjectId, home = false, wide = false } = Astro.props;
 const ws = Astro.locals.workspace;
 // 'light' | 'dark' forces a theme; anything else follows the system. A cookie, so the server renders it without a flash.
 const themeCookie = Astro.cookies.get('theme')?.value;
@@ -152,7 +152,7 @@ const paletteTypes = types.map((t) => ({ id: t.id, name: t.name, slug: t.slug, i
         </p>
       </nav>
 
-      <main id="main" class="mx-auto w-full max-w-3xl px-4 pb-24 pt-6 md:px-10 md:pt-14">
+      <main id="main" class:list={['mx-auto w-full max-w-3xl px-4 pb-24 pt-6 md:px-10 md:pt-14', wide && 'xl:max-w-6xl']}>
         <slot />
       </main>
     </div>

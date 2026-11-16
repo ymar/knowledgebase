@@ -24,6 +24,8 @@ export interface TypeRow {
   workspace_id: string | null;
   /** Turned on in its workspace. System types are always on. */
   enabled: boolean;
+  /** Key of the date property that ties this type to daily notes (quick add + date references); null = off. */
+  day_key: string | null;
 }
 
 export type PropertyValue = string | number | null;

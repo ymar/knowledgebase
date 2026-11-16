@@ -67,9 +67,12 @@ Do not copy Capacities assets, icons, logo or wording.
   PageUp/Down, Home/End, Enter, Esc). `navigate` mode opens a day note; `field` mode fills a hidden input.
   Native date inputs remain only in the type-page filter row. Theme: `theme` cookie -> `<html data-theme>`.
 - App name in the UI and tab title is "KB".
-- Daily notes have "+ Type" quick-add chips under the date (`src/components/QuickAdd.astro`): enabled types of
-  the workspace minus Day and Tag. The page dispatches `kb:add-reference`; the Editor creates the object and appends
-  a line with its mention, so it merges with unsaved typing and saves through normal autosave.
+- Daily notes work like Capacities' calendar quick actions (migration 0009): `types.day_key` names the date
+  property that ties a type to days (set under "Daily notes" in the type editor; NULL = off; Project uses Due by
+  default). Daily notes show a "+ Type" button per enabled type with a `day_key` (`QuickAdd.astro`); it creates the
+  object with that property set to the day, lists it under "Date references" and leaves the note text alone.
+  Day pages are `wide`: at xl a side panel holds the month calendar (dots: note, scheduled) and Date references;
+  below xl the week strip and an inline Date references list show instead.
 - `astro dev` runs as a managed background process: stop it with `npx astro dev stop` before `db:reset`.
 
 ## Code rules

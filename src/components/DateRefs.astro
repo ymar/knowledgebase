@@ -1,0 +1,31 @@
+---
+/** "Date references": objects whose daily-note date property is this day. QuickAdd appends to these lists live. */
+import TypeTile from './TypeTile.astro';
+
+interface Item {
+  id: string;
+  title: string;
+  type_name: string;
+  type_icon: string;
+  type_color: string;
+  label: string;
+}
+interface Props { items: Item[]; class?: string }
+const { items, class: cls = '' } = Astro.props;
+---
+<section data-date-refs-section aria-label="Date references" class:list={[cls, items.length === 0 && 'hidden']}>
+  <h2 class="eyebrow mb-3">Date references</h2>
+  <ul data-date-refs class="divide-y divide-line overflow-hidden rounded-xl border border-line bg-card">
+    {items.map((o) => (
+      <li>
+        <a href={`/o/${o.id}`} class="flex items-center gap-3 px-3.5 py-2.5 transition-colors hover:bg-hover">
+          <TypeTile icon={o.type_icon} color={o.type_color} size="sm" />
+          <span class="min-w-0 flex-1">
+            <span class="block truncate text-[15px]">{o.title || 'Untitled'}</span>
+            <span class="block text-xs text-muted">{o.type_name} · {o.label}</span>
+          </span>
+        </a>
+      </li>
+    ))}
+  </ul>
+</section>

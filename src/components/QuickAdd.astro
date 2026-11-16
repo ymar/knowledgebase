@@ -1,21 +1,25 @@
 ---
 /**
- * "+ Type" chips under a daily note's date: create an object of that type and
- * reference it in the day's note. The Editor island does the insert (see
- * `kb:add-reference` in Editor.tsx).
+ * "+ Type" buttons under a daily note's date, like the calendar quick actions in
+ * Capacities: create an object with its daily-note date property set to this day.
+ * Only types that are on and have a date property chosen under "Daily notes" in the
+ * type editor. The new object appears under Date references; you stay on the day.
  */
 import Icon from './Icon.astro';
 import TypeTile from './TypeTile.astro';
 import type { TypeRow } from '../lib/schema';
 
-interface Props { types: TypeRow[] }
-const types = Astro.props.types.filter((t) => t.id !== 'type_day' && t.id !== 'type_tag');
+interface Props { types: TypeRow[]; date: string; workspaceId: string }
+const { date, workspaceId } = Astro.props;
+const types = Astro.props.types.filter((t) => t.enabled && t.day_key && t.id !== 'type_day' && t.id !== 'type_tag');
+const labelOf = (t: TypeRow) => t.properties.find((p) => p.key === t.day_key)?.label ?? 'Date';
 ---
-{types.length > 0 && (
-  <div data-quick-add class="mt-4">
+{types.length > 0 ? (
+  <div data-quick-add data-date={date} data-ws={workspaceId} class="mt-4">
     <div class="flex flex-wrap gap-2" role="group" aria-label="Add to this day">
       {types.map((t) => (
-        <button type="button" data-qa-type={t.id} data-qa-name={t.name}
+        <button type="button" data-qa-type={t.id} data-qa-name={t.name} data-qa-label={labelOf(t)}
+          title={`New ${t.name.toLowerCase()} with ${labelOf(t)} on this day`}
           class="inline-flex items-center gap-1.5 rounded-lg border border-line bg-card py-1 pl-2 pr-2.5 text-sm text-ink/80 shadow-xs transition hover:border-ink/25 hover:text-ink aria-pressed:border-ink/40 aria-pressed:text-ink">
           <Icon name="plus" size={13} class="text-muted" />
           <TypeTile icon={t.icon} color={t.color} size="sm" />
@@ -30,6 +34,10 @@ const types = Astro.props.types.filter((t) => t.id !== 'type_day' && t.id !== 't
     </form>
     <p data-qa-status class="mt-1.5 text-sm text-muted" aria-live="polite"></p>
   </div>
+) : (
+  <p class="mt-3 text-sm text-muted">
+    Want buttons here? In <a href="/types" class="underline underline-offset-2 hover:text-ink">Types</a>, give a type a date property and pick it under “Daily notes”.
+  </p>
 )}
 
 <script>
@@ -38,7 +46,6 @@ const types = Astro.props.types.filter((t) => t.id !== 'type_day' && t.id !== 't
     const input = root.querySelector<HTMLInputElement>('[data-qa-input]')!;
     const status = root.querySelector<HTMLElement>('[data-qa-status]')!;
     const chips = [...root.querySelectorAll<HTMLButtonElement>('[data-qa-type]')];
-    let typeId = '';
     let chip: HTMLButtonElement | null = null;
 
     const close = () => {
@@ -48,9 +55,7 @@ const types = Astro.props.types.filter((t) => t.id !== 'type_day' && t.id !== 't
     };
     chips.forEach((c) =>
       c.addEventListener('click', () => {
-        const again = typeId === c.dataset.qaType && !form.hidden;
-        if (again) return close();
-        typeId = c.dataset.qaType!;
+        if (chip === c && !form.hidden) return close();
         chip = c;
         chips.forEach((x) => x.toggleAttribute('aria-pressed', x === c));
         input.placeholder = `New ${c.dataset.qaName!.toLowerCase()}…`;
@@ -67,20 +72,47 @@ const types = Astro.props.types.filter((t) => t.id !== 'type_day' && t.id !== 't
         close();
       }
     });
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const title = input.value.trim();
-      if (!title) return;
-      // The editor island may still be loading right after page load.
-      for (let i = 0; i < 20 && !(window as unknown as { kbEditorReady?: boolean }).kbEditorReady; i++) {
-        await new Promise((r) => setTimeout(r, 150));
+      if (!title || !chip) return;
+      const res = await fetch('/api/objects', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ typeId: chip.dataset.qaType, title, workspaceId: root.dataset.ws, date: root.dataset.date }),
+      });
+      if (!res.ok) {
+        status.textContent = 'Could not add it. Try again.';
+        return;
       }
-      const done = new Promise<{ id: string; title: string }>((resolve) =>
-        window.addEventListener('kb:reference-added', (ev) => resolve((ev as CustomEvent).detail), { once: true }),
-      );
-      window.dispatchEvent(new CustomEvent('kb:add-reference', { detail: { typeId, title } }));
-      const s = await done;
-      status.innerHTML = '';
+      const s = (await res.json()) as { id: string; title: string; type_name: string; type_icon: string; type_color: string };
+
+      // Show it under Date references right away (main column and side panel).
+      const tile = chip.querySelector('.tile')!.cloneNode(true);
+      document.querySelectorAll<HTMLElement>('[data-date-refs]').forEach((list) => {
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        a.href = `/o/${s.id}`;
+        a.className = 'flex items-center gap-3 px-3.5 py-2.5 transition-colors hover:bg-hover';
+        const text = document.createElement('span');
+        text.className = 'min-w-0 flex-1';
+        const name = document.createElement('span');
+        name.className = 'block truncate text-[15px]';
+        name.textContent = s.title;
+        const meta = document.createElement('span');
+        meta.className = 'block text-xs text-muted';
+        meta.textContent = `${s.type_name} · ${chip!.dataset.qaLabel}`;
+        text.appendChild(name);
+        text.appendChild(meta);
+        a.appendChild(tile.cloneNode(true));
+        a.appendChild(text);
+        li.appendChild(a);
+        list.appendChild(li);
+        list.closest('[data-date-refs-section]')?.classList.remove('hidden');
+      });
+
+      status.textContent = '';
       const link = document.createElement('a');
       link.href = `/o/${s.id}`;
       link.className = 'font-medium text-ink underline underline-offset-2';

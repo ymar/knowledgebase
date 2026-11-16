@@ -5,7 +5,9 @@ import ObjectList from './ObjectList.astro';
 import Icon from './Icon.astro';
 import DatePicker from './DatePicker.astro';
 import QuickAdd from './QuickAdd.astro';
-import { activityOn, daysWithNotes, findDay, getObject, getTypeById, listTypes, markOpened } from '../lib/db';
+import DateRefs from './DateRefs.astro';
+import MonthCalendar from './MonthCalendar.astro';
+import { activityOn, dateReferences, daysWithNotes, findDay, getObject, getTypeById, listTypes, markOpened, scheduledCounts } from '../lib/db';
 import { editorProps } from '../lib/editor-props';
 import { addDays, dayLabel } from '../lib/format';
 
@@ -24,18 +26,35 @@ if (dayId) {
   if (Astro.locals.cfContext?.waitUntil) Astro.locals.cfContext.waitUntil(opened);
   else await opened;
 }
-const [day, withNotes, activity] = await Promise.all([
+// Month calendar: ?month=YYYY-MM, else the month of `date`. Six Monday-first weeks.
+const monthParam = Astro.url.searchParams.get('month') ?? '';
+const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(monthParam) ? monthParam : date.slice(0, 7);
+const first = `${month}-01`;
+const gridStart = addDays(first, -((new Date(`${first}T00:00:00Z`).getUTCDay() + 6) % 7));
+const gridEnd = addDays(gridStart, 41);
+const rangeFrom = gridStart < week[0] ? gridStart : week[0];
+const rangeTo = gridEnd > week[6] ? gridEnd : week[6];
+
+const [day, withNotes, activity, refsOnDay, scheduled, allTypes] = await Promise.all([
   dayId ? getObject(dayId) : null,
-  daysWithNotes(ws, week[0], week[6]),
+  daysWithNotes(ws, rangeFrom, rangeTo),
   activityOn(ws, date),
+  dateReferences(ws, date),
+  scheduledCounts(ws, gridStart, gridEnd),
+  listTypes(ws, { includeDisabled: true }),
 ]);
+const propLabel = (typeId: string, key: string) =>
+  allTypes.find((t) => t.id === typeId)?.properties.find((p) => p.key === key)?.label ?? 'Date';
+const dateRefItems = refsOnDay.map((r) => ({ ...r, label: propLabel(r.type_id, r.day_key) }));
 // No day object yet: show the Day template. The object is created on first save.
 const initial = day ? day.content : ((await getTypeById('type_day'))?.template ?? []);
 const { refs, types } = await editorProps(ws, initial);
-const quickTypes = await listTypes(ws);
+const quickTypes = allTypes;
 const fmt = (iso: string, opt: Intl.DateTimeFormatOptions) =>
   new Intl.DateTimeFormat('en-GB', { ...opt, timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
 ---
+<div class="xl:grid xl:grid-cols-[minmax(0,1fr)_17rem] xl:gap-12">
+<div class="min-w-0">
 <div class="flex flex-wrap items-center justify-between gap-3">
   <p class="eyebrow">{date === today ? 'Today' : date < today ? 'Past day' : 'Upcoming'}</p>
   <div class="flex items-center gap-1.5">
@@ -48,9 +67,9 @@ const fmt = (iso: string, opt: Intl.DateTimeFormatOptions) =>
 
 <h1 class="mt-3 text-3xl font-bold tracking-tight md:text-[2.5rem] md:leading-tight">{dayLabel(date)}</h1>
 
-<QuickAdd types={quickTypes} />
+<QuickAdd types={quickTypes} date={date} workspaceId={ws} />
 
-<nav aria-label="This week" class="mt-5 grid grid-cols-7 gap-1 rounded-xl border border-line bg-card p-1.5">
+<nav aria-label="This week" class="mt-5 grid grid-cols-7 xl:hidden gap-1 rounded-xl border border-line bg-card p-1.5">
   {week.map((d) => (
     <a href={d === today ? '/' : `/day/${d}`} aria-current={d === date ? 'date' : undefined}
       class:list={[
@@ -70,6 +89,8 @@ const fmt = (iso: string, opt: Intl.DateTimeFormatOptions) =>
   <Editor client:only="react" saveUrl={`/api/days/${date}/content?ws=${ws}`} workspaceId={ws} initialContent={initial} refs={refs} types={types} selfId={dayId} />
 </div>
 
+<DateRefs items={dateRefItems} class="mt-12 xl:hidden" />
+
 {activity.length > 0 && (
   <section class="mt-14" aria-labelledby="activity-h">
     <h2 id="activity-h" class="eyebrow mb-3">Created or edited this day</h2>
@@ -78,6 +99,15 @@ const fmt = (iso: string, opt: Intl.DateTimeFormatOptions) =>
 )}
 
 {day && <Backlinks targetId={day.id} targetTitle={day.title} />}
+</div>
+
+<aside class="hidden xl:block" aria-label="Calendar and date references">
+  <div class="sticky top-14 space-y-8">
+    <MonthCalendar date={date} today={today} month={month} gridStart={gridStart} noteDays={withNotes} scheduled={scheduled} />
+    <DateRefs items={dateRefItems} />
+  </div>
+</aside>
+</div>
 
 <script is:inline define:vars={{ prev: `/day/${addDays(date, -1)}`, next: `/day/${addDays(date, 1)}` }}>
   addEventListener('keydown', (e) => {

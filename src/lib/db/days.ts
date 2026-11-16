@@ -41,6 +41,46 @@ export async function daysWithNotes(ws: string, from: string, to: string): Promi
   return new Set(results.map((r) => r.title));
 }
 
+export interface DateReference extends ObjectSummary {
+  /** The date property that put it on this day. */
+  day_key: string;
+}
+
+/**
+ * Objects whose daily-note date property (their type's `day_key`) is `date`.
+ * `day_key` is validated as [A-Za-z0-9_]+ when a type is saved, so building the JSON path from it is safe.
+ */
+export async function dateReferences(ws: string, date: string): Promise<DateReference[]> {
+  const { results } = await db()
+    .prepare(
+      `SELECT o.id, o.type_id, o.title, o.updated_at, t.day_key,
+              t.name AS type_name, t.slug AS type_slug, t.icon AS type_icon, t.color AS type_color
+       FROM objects o JOIN types t ON t.id = o.type_id
+       WHERE o.workspace_id = ? AND o.deleted_at IS NULL AND t.day_key IS NOT NULL
+         AND json_extract(o.properties, '$."' || t.day_key || '"') = ?
+       ORDER BY t.sort_order, o.title COLLATE NOCASE
+       LIMIT 200`,
+    )
+    .bind(ws, date)
+    .all<DateReference>();
+  return results;
+}
+
+/** Per date in [from, to]: how many objects are scheduled on it via a date property. */
+export async function scheduledCounts(ws: string, from: string, to: string): Promise<Record<string, number>> {
+  const { results } = await db()
+    .prepare(
+      `SELECT d, COUNT(*) AS n FROM (
+         SELECT json_extract(o.properties, '$."' || t.day_key || '"') AS d
+         FROM objects o JOIN types t ON t.id = o.type_id
+         WHERE o.workspace_id = ? AND o.deleted_at IS NULL AND t.day_key IS NOT NULL
+       ) WHERE d BETWEEN ? AND ? GROUP BY d`,
+    )
+    .bind(ws, from, to)
+    .all<{ d: string; n: number }>();
+  return Object.fromEntries(results.map((r) => [r.d, r.n]));
+}
+
 export interface DayActivity extends ObjectSummary {
   created_on_day: number;
 }

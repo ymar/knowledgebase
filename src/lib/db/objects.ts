@@ -58,6 +58,8 @@ export async function createObject(input: {
   workspaceId: string;
   typeId: string;
   title: string;
+  /** Initial property values (e.g. the day-note date); relation values aren't linked here. */
+  properties?: Record<string, PropertyValue>;
 }): Promise<string> {
   const id = newId();
   const now = nowIso();
@@ -68,9 +70,9 @@ export async function createObject(input: {
     d
       .prepare(
         `INSERT INTO objects (id, workspace_id, type_id, title, properties, content, text_content, created_at, updated_at)
-         VALUES (?, ?, ?, ?, '{}', ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .bind(id, input.workspaceId, input.typeId, input.title.trim(), JSON.stringify(content), extractText(content), now, now),
+      .bind(id, input.workspaceId, input.typeId, input.title.trim(), JSON.stringify(input.properties ?? {}), JSON.stringify(content), extractText(content), now, now),
     ...contentLinkStatements(id, extractMentionIds(content), now),
   ]);
   return id;

@@ -5,6 +5,6 @@ import { requestTimeZone, todayIn } from '../lib/format';
 
 const today = todayIn(requestTimeZone(Astro.request));
 ---
-<Base title="Today" home>
+<Base title="Today" home wide>
   <DayView date={today} today={today} />
 </Base>
