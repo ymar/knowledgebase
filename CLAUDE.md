@@ -32,6 +32,12 @@ Do not copy Capacities assets, icons, logo or wording.
 - Autosave: 800 ms debounce, PUT JSON, retry on failure, flush on tab hide, Cmd/Ctrl+S saves now.
 - Day notes are created on first save (`PUT /api/days/:date/content`), so browsing dates leaves no empty rows.
   "Today" uses Cloudflare's `request.cf.timezone`, UTC in local dev.
+- Cmd/Ctrl+K always opens the palette (capture phase), also inside the editor. BlockNote's own Mod+K link
+  shortcut is overridden; links stay in the formatting toolbar. The palette hydrates `client:load`.
+- Tags: inline `#tag` mentions are `content` links; the tag field under the title adds `tag` links. Both count
+  for tag pages and the "Untagged" view.
+- Unlinked mentions "Link" rewrites the source document (first plain-text occurrence becomes a mention) and
+  saves it, so the link survives that object's next autosave.
 - `astro dev` runs as a managed background process: stop it with `npx astro dev stop` before `db:reset`.
 
 ## Code rules
@@ -74,7 +80,7 @@ Phases from the original spec. Status in brackets.
 1. Foundation [done]: setup, migrations, seed, sidebar, list per type, detail, create/rename/delete, property form.
 2. Editor and links [done]: BlockNote with debounced autosave, `@` mention search + inline create,
    backlinks with surrounding text, today's daily note as home with prev/next.
-3. Find things: Cmd+K palette (FTS, jump, create), filter and sort list pages, tag pages.
+3. Find things [done]: Cmd+K palette (FTS, jump, create), filter and sort list pages, tag pages.
 4. Files and types: R2 upload from editor, type editor UI, JSON export.
 
 ## Gap analysis vs Capacities
@@ -100,15 +106,15 @@ Items marked SCHEMA need approval of the SQL before building.
 
 ### Fold into phase 3 (P1)
 
-- [ ] **Type dashboard** instead of a flat list: sections "Recent", "Untagged", "No backlinks", and "All"
+- [x] **Type dashboard** instead of a flat list: sections "Recent", "Untagged", "No backlinks", and "All"
       (the filter/sort view from phase 3).
-- [ ] **List / card view toggle** on type pages. Remember the choice per type in localStorage.
-- [ ] **Unlinked mentions** on each object: FTS hits on its title in objects that don't link to it, with a
+- [x] **List / card view toggle** on type pages. Remembered per type in a cookie (`view_<slug>`) so the server renders it without a flash.
+- [x] **Unlinked mentions** on each object: FTS hits on its title in objects that don't link to it, with a
       one-click "link" action.
-- [ ] **Recently opened** SCHEMA: `objects.opened_at TEXT`, updated on detail view (`waitUntil`, off the
+- [x] **Recently opened** SCHEMA: `objects.opened_at TEXT`, updated on detail view (`waitUntil`, off the
       critical path). Feeds the palette's empty state and the dashboard.
-- [ ] **Pinned objects in the sidebar** SCHEMA: `objects.pinned_at TEXT`. Toggle on the detail page.
-- [ ] **Change an object's type** from the type label. Keep property values whose keys match, drop the rest
+- [x] **Pinned objects in the sidebar** SCHEMA: `objects.pinned_at TEXT`. Toggle on the detail page.
+- [x] **Change an object's type** from the type label. Keep property values whose keys match, drop the rest
       after a confirm.
 
 ### Fold into phase 4 (P1)

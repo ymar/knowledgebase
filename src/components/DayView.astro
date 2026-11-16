@@ -3,7 +3,7 @@ import Editor from './react/Editor';
 import Backlinks from './Backlinks.astro';
 import ObjectList from './ObjectList.astro';
 import Icon from './Icon.astro';
-import { activityOn, daysWithNotes, findDay, getObject, getTypeById } from '../lib/db';
+import { activityOn, daysWithNotes, findDay, getObject, getTypeById, markOpened } from '../lib/db';
 import { editorProps } from '../lib/editor-props';
 import { addDays, dayLabel } from '../lib/format';
 
@@ -16,6 +16,11 @@ const monday = addDays(date, -dow);
 const week = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
 
 const dayId = await findDay(date);
+if (dayId) {
+  const opened = markOpened(dayId);
+  if (Astro.locals.cfContext?.waitUntil) Astro.locals.cfContext.waitUntil(opened);
+  else await opened;
+}
 const [day, withNotes, activity] = await Promise.all([
   dayId ? getObject(dayId) : null,
   daysWithNotes(week[0], week[6]),

@@ -1,0 +1,8 @@
+---
+// Renders an FTS snippet whose matches are wrapped in \u0002 … \u0003.
+interface Props { text: string }
+const parts = Astro.props.text.split(/(\u0002[^\u0003]*\u0003)/g).filter(Boolean);
+---
+{parts.map((p) => p.startsWith('\u0002')
+  ? <mark class="rounded bg-hover px-0.5 font-medium text-ink">{p.slice(1, -1)}</mark>
+  : <>{p}</>)}

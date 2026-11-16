@@ -1,22 +1,51 @@
 ---
 import Base from '../../../layouts/Base.astro';
-import ObjectList from '../../../components/ObjectList.astro';
+import ObjectCards from '../../../components/ObjectCards.astro';
 import TypeTile from '../../../components/TypeTile.astro';
 import Icon from '../../../components/Icon.astro';
-import { getTypeBySlug, listObjectsByType } from '../../../lib/db';
+import { getSummaries, getTypeBySlug, queryObjects, recentlyOpened } from '../../../lib/db';
+import { OPS, SORTS, readListParams, withParams } from '../../../lib/list-params';
+import { dayLabel } from '../../../lib/format';
 
 const type = await getTypeBySlug(Astro.params.slug!);
 if (!type) return new Response('Not found', { status: 404 });
-const items = await listObjectsByType(type.id);
-const error = Astro.url.searchParams.get('error');
+const defs = type.properties;
+
+// The list/card choice is remembered per type in a cookie, so the server renders it without a flash.
+const cookieName = `view_${type.slug}`;
+const params = readListParams(Astro.url, defs, Astro.cookies.get(cookieName)?.value);
+if (Astro.url.searchParams.has('view')) {
+  Astro.cookies.set(cookieName, params.view, { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' });
+}
+
 const isDay = type.id === 'type_day';
+const plain = params.show === 'all' && params.filters.length === 0;
+const [items, recent] = await Promise.all([
+  queryObjects({ typeId: type.id, defs, show: params.show, filters: params.filters, sort: params.sort }),
+  plain ? recentlyOpened(4, type.id) : Promise.resolve([]),
+]);
+
+const relIds = items.flatMap((o) => defs.filter((d) => d.kind === 'relation').map((d) => o.properties[d.key]))
+  .filter((v): v is string => typeof v === 'string' && v !== '');
+const relTitles = Object.fromEntries(Object.values(await getSummaries([...new Set(relIds)])).map((s) => [s.id, s.title]));
+
+const error = Astro.url.searchParams.get('error');
+const url = Astro.url;
+const tabs = [
+  ['all', 'All'],
+  ['untagged', 'Untagged'],
+  ['unlinked', 'No backlinks'],
+] as const;
+const filterRows = [...params.filters, { key: '', op: 'contains' as const, value: '' }];
+const kindOf = (key: string) => (key === 'title' ? 'text' : defs.find((d) => d.key === key)?.kind ?? 'text');
+const hasFilters = params.filters.length > 0 || params.sort.key !== 'updated';
 ---
 <Base title={type.name} activeTypeId={type.id}>
   <div class="flex items-center gap-4">
     <TypeTile icon={type.icon} color={type.color} size="lg" />
     <div>
       <h1 class="text-3xl font-bold tracking-tight md:text-4xl">{type.name}</h1>
-      <p class="text-sm text-muted">{items.length} {items.length === 1 ? 'object' : 'objects'}</p>
+      <p class="text-sm text-muted">{items.length} {items.length === 1 ? 'object' : 'objects'}{!plain && ' shown'}</p>
     </div>
   </div>
 
@@ -33,5 +62,93 @@ const isDay = type.id === 'type_day';
   </form>
   {error && <p role="alert" class="mt-2 text-sm text-red-600">{error}</p>}
 
-  <div class="mt-6"><ObjectList items={items} empty={`No ${type.name.toLowerCase()} objects yet. Press n to create one.`} /></div>
+  {recent.length > 0 && (
+    <section class="mt-10" aria-labelledby="recent-h">
+      <h2 id="recent-h" class="eyebrow mb-3">Recently opened</h2>
+      <ul class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {recent.map((o) => (
+          <li>
+            <a href={`/o/${o.id}`} class="card flex h-full flex-col gap-3 p-3.5">
+              <TypeTile icon={o.type_icon} color={o.type_color} size="sm" />
+              <span class="line-clamp-2 text-sm font-medium">{isDay ? dayLabel(o.title) : o.title || 'Untitled'}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )}
+
+  <div class="mt-10 flex flex-wrap items-center justify-between gap-3">
+    <nav aria-label="Show" class="flex gap-1 rounded-lg bg-panel p-1 text-sm">
+      {tabs.map(([key, label]) => (
+        <a href={withParams(url, { show: key === 'all' ? null : key })}
+          aria-current={params.show === key ? 'page' : undefined}
+          class="rounded-md px-2.5 py-1 text-muted hover:text-ink aria-[current=page]:bg-card aria-[current=page]:text-ink aria-[current=page]:shadow-xs">
+          {label}
+        </a>
+      ))}
+    </nav>
+    <div class="flex gap-1 rounded-lg bg-panel p-1 text-sm" role="group" aria-label="View">
+      {(['list', 'cards'] as const).map((v) => (
+        <a href={withParams(url, { view: v })} aria-current={params.view === v ? 'true' : undefined}
+          class="rounded-md px-2.5 py-1 capitalize text-muted hover:text-ink aria-[current=true]:bg-card aria-[current=true]:text-ink aria-[current=true]:shadow-xs">
+          {v}
+        </a>
+      ))}
+    </div>
+  </div>
+
+  <details class="group mt-3 rounded-xl border border-line bg-card" open={hasFilters}>
+    <summary class="flex cursor-pointer list-none items-center justify-between px-4 py-2.5 text-sm text-muted hover:text-ink">
+      <span>Filter and sort{hasFilters && <span class="ml-2 rounded-full bg-primary px-1.5 text-[11px] text-primary-ink">{params.filters.length + (params.sort.key !== 'updated' ? 1 : 0)}</span>}</span>
+      <span aria-hidden="true" class="transition group-open:rotate-180">⌄</span>
+    </summary>
+    <form method="get" class="space-y-2 border-t border-line p-4" id="filters">
+      {params.show !== 'all' && <input type="hidden" name="show" value={params.show} />}
+      {filterRows.map((f) => (
+        <div class="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_1.4fr]">
+          <select name="f" class="field" aria-label="Property" data-filter-key>
+            <option value="">Property…</option>
+            <option value="title" data-kind="text" selected={f.key === 'title'}>Title</option>
+            {defs.map((d) => <option value={d.key} data-kind={d.kind} selected={f.key === d.key}>{d.label}</option>)}
+          </select>
+          <select name="op" class="field" aria-label="Condition">
+            {Object.entries(OPS).map(([k, label]) => <option value={k} selected={f.op === k}>{label}</option>)}
+          </select>
+          <input name="v" value={f.value} class="field col-span-2 sm:col-span-1" aria-label="Value" placeholder="Value"
+            type={kindOf(f.key) === 'date' ? 'date' : kindOf(f.key) === 'number' ? 'number' : 'text'} />
+        </div>
+      ))}
+      <div class="flex flex-wrap items-center gap-2 pt-2">
+        <label class="text-sm text-muted" for="sort">Sort by</label>
+        <select id="sort" name="sort" class="field w-auto">
+          {Object.entries(SORTS).map(([k, label]) => <option value={k} selected={params.sort.key === k}>{label}</option>)}
+          {defs.map((d) => <option value={d.key} selected={params.sort.key === d.key}>{d.label}</option>)}
+        </select>
+        <select name="dir" class="field w-auto" aria-label="Direction">
+          <option value="desc" selected={params.sort.dir === 'desc'}>Descending</option>
+          <option value="asc" selected={params.sort.dir === 'asc'}>Ascending</option>
+        </select>
+        <span class="flex-1"></span>
+        {hasFilters && <a href={withParams(url, { f: null, op: null, v: null, sort: null, dir: null })} class="btn">Reset</a>}
+        <button class="btn-primary" type="submit">Apply</button>
+      </div>
+    </form>
+  </details>
+
+  <div class="mt-4">
+    <ObjectCards items={items} defs={defs} view={params.view} relTitles={relTitles}
+      empty={plain ? `No ${type.name.toLowerCase()} objects yet. Press n to create one.` : 'Nothing matches.'} />
+  </div>
+
+  <script is:inline>
+    // Value input follows the chosen property's kind (date picker, number pad).
+    document.querySelectorAll('[data-filter-key]').forEach((sel) => {
+      sel.addEventListener('change', () => {
+        const kind = sel.selectedOptions[0]?.dataset.kind;
+        const input = sel.parentElement.querySelector('input[name=v]');
+        input.type = kind === 'date' ? 'date' : kind === 'number' ? 'number' : 'text';
+      });
+    });
+  </script>
 </Base>

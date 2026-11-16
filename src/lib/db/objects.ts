@@ -131,3 +131,56 @@ export async function findDay(date: string): Promise<string | null> {
     .first<{ id: string }>();
   return r?.id ?? null;
 }
+
+/** Records a view for "recently opened". Doesn't touch updated_at. */
+export async function markOpened(id: string): Promise<void> {
+  await db().prepare('UPDATE objects SET opened_at = ? WHERE id = ?').bind(nowIso(), id).run();
+}
+
+export async function setPinned(id: string, pinned: boolean): Promise<void> {
+  await db()
+    .prepare('UPDATE objects SET pinned_at = ? WHERE id = ? AND deleted_at IS NULL')
+    .bind(pinned ? nowIso() : null, id)
+    .run();
+}
+
+/**
+ * Moves an object to another type. Keeps property values whose key exists on the
+ * new type, drops the rest, and rewrites relation links, all in one batch.
+ * Returns the dropped keys.
+ */
+export async function changeType(
+  id: string,
+  current: Record<string, PropertyValue>,
+  newTypeId: string,
+  newDefs: PropertyDef[],
+): Promise<string[]> {
+  const keep = new Set(newDefs.map((d) => d.key));
+  const kept = Object.fromEntries(Object.entries(current).filter(([k]) => keep.has(k)));
+  const dropped = Object.keys(current).filter((k) => !keep.has(k) && current[k] !== null && current[k] !== '');
+  const now = nowIso();
+  const d = db();
+  const relationTargets = [
+    ...new Set(
+      newDefs
+        .filter((x) => x.kind === 'relation')
+        .map((x) => kept[x.key])
+        .filter((v): v is string => typeof v === 'string' && v !== '' && v !== id),
+    ),
+  ];
+  await d.batch([
+    d
+      .prepare('UPDATE objects SET type_id = ?, properties = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL')
+      .bind(newTypeId, JSON.stringify(kept), now, id),
+    d.prepare("DELETE FROM links WHERE source_id = ? AND origin = 'property'").bind(id),
+    ...relationTargets.map((t) =>
+      d
+        .prepare(
+          `INSERT OR IGNORE INTO links (source_id, target_id, origin, created_at)
+           SELECT ?, id, 'property', ? FROM objects WHERE id = ? AND deleted_at IS NULL`,
+        )
+        .bind(id, now, t),
+    ),
+  ]);
+  return dropped;
+}

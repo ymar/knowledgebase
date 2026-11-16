@@ -34,6 +34,8 @@ export interface ObjectRow {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  opened_at: string | null;
+  pinned_at: string | null;
 }
 
 /** Light row for lists, search results, pickers. */
@@ -52,3 +54,24 @@ export type LinkOrigin = 'content' | 'tag' | 'property';
 
 export const DAY_TYPE_ID = 'type_day';
 export const TAG_TYPE_ID = 'type_tag';
+
+/* ---------- type page queries ---------- */
+
+export type FilterOp = 'is' | 'contains' | 'gt' | 'lt' | 'empty' | 'not_empty';
+export interface Filter {
+  /** 'title' or a property key of the type */
+  key: string;
+  op: FilterOp;
+  value: string;
+}
+export type Show = 'all' | 'untagged' | 'unlinked';
+export interface Sort {
+  /** 'updated' | 'created' | 'title' | 'opened' or a property key */
+  key: string;
+  dir: 'asc' | 'desc';
+}
+export interface ObjectCard extends ObjectSummary {
+  properties: Record<string, PropertyValue>;
+  excerpt: string;
+  created_at: string;
+}

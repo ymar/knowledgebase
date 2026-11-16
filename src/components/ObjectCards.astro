@@ -1,0 +1,61 @@
+---
+import type { ObjectCard, PropertyDef } from '../lib/schema';
+import TypeTile from './TypeTile.astro';
+import { displayValue } from '../lib/property-display';
+import { dayLabel, shortDate } from '../lib/format';
+
+interface Props {
+  items: ObjectCard[];
+  defs: PropertyDef[];
+  view: 'list' | 'cards';
+  relTitles: Record<string, string>;
+  empty: string;
+}
+const { items, defs, view, relTitles, empty } = Astro.props;
+const shown = (o: ObjectCard, max: number) =>
+  defs
+    .map((d) => ({ d, text: displayValue(d, o.properties[d.key], relTitles) }))
+    .filter((x) => x.text)
+    .slice(0, max);
+const title = (o: ObjectCard) => (o.type_id === 'type_day' ? dayLabel(o.title) : o.title || 'Untitled');
+---
+{items.length === 0 ? (
+  <p class="rounded-xl border border-dashed border-line px-6 py-10 text-center text-sm text-muted">{empty}</p>
+) : view === 'cards' ? (
+  <ul class="grid gap-3 sm:grid-cols-2">
+    {items.map((o) => (
+      <li>
+        <a href={`/o/${o.id}`} class="card flex h-full flex-col p-4">
+          <span class="flex items-center gap-2.5">
+            <TypeTile icon={o.type_icon} color={o.type_color} size="sm" />
+            <span class="truncate font-semibold">{title(o)}</span>
+          </span>
+          {shown(o, 3).length > 0 && (
+            <span class="mt-2.5 flex flex-wrap gap-1.5">
+              {shown(o, 3).map(({ d, text }) => (
+                <span class="rounded-md bg-panel px-1.5 py-0.5 text-xs text-muted" title={d.label}>{text}</span>
+              ))}
+            </span>
+          )}
+          {o.excerpt && <span class="mt-2.5 line-clamp-3 text-sm leading-relaxed text-ink/70">{o.excerpt}</span>}
+          <span class="mt-auto pt-3 text-xs text-muted">{shortDate(o.updated_at)}</span>
+        </a>
+      </li>
+    ))}
+  </ul>
+) : (
+  <ul class="divide-y divide-line overflow-hidden rounded-xl border border-line bg-card">
+    {items.map((o) => (
+      <li>
+        <a href={`/o/${o.id}`} class="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-hover">
+          <TypeTile icon={o.type_icon} color={o.type_color} size="sm" />
+          <span class="min-w-0 flex-1 truncate text-[15px]">{title(o)}</span>
+          {shown(o, 2).map(({ d, text }) => (
+            <span class="hidden max-w-[10rem] truncate rounded-md bg-panel px-1.5 py-0.5 text-xs text-muted sm:inline" title={d.label}>{text}</span>
+          ))}
+          <span class="w-14 text-right text-xs tabular-nums text-muted">{shortDate(o.updated_at)}</span>
+        </a>
+      </li>
+    ))}
+  </ul>
+)}

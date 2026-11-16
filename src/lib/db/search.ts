@@ -46,3 +46,66 @@ export async function findByTitle(typeId: string, title: string): Promise<string
     .first<{ id: string }>();
   return r?.id ?? null;
 }
+
+export interface SearchHit extends ObjectSummary {
+  /** Text around the match; matches wrapped in \u0002 ... \u0003. */
+  snippet: string;
+}
+
+/** FTS5 query: every word must appear, last word as a prefix. Quotes are escaped. */
+export function ftsQuery(input: string): string | null {
+  const words = input.trim().split(/\s+/).filter(Boolean).slice(0, 8);
+  if (!words.length) return null;
+  return words.map((w, i) => `"${w.replace(/"/g, '""')}"${i === words.length - 1 ? '*' : ''}`).join(' ');
+}
+
+/** Full-text search over titles and document text. Titles weigh more. */
+export async function searchFullText(input: string, limit = 20): Promise<SearchHit[]> {
+  const match = ftsQuery(input);
+  if (!match) return [];
+  const { results } = await db()
+    .prepare(
+      `SELECT o.id, o.type_id, o.title, o.updated_at,
+              t.name AS type_name, t.slug AS type_slug, t.icon AS type_icon, t.color AS type_color,
+              snippet(objects_fts, 1, char(2), char(3), '…', 14) AS snippet
+       FROM objects_fts
+       JOIN objects o ON o.rowid = objects_fts.rowid
+       JOIN types t ON t.id = o.type_id
+       WHERE objects_fts MATCH ? AND o.deleted_at IS NULL
+       ORDER BY bm25(objects_fts, 8.0, 1.0)
+       LIMIT ?`,
+    )
+    .bind(match, limit)
+    .all<SearchHit>();
+  return results;
+}
+
+/**
+ * Objects whose text contains `title` as a phrase but that don't link to `targetId`.
+ * Returns their content too, so the caller can confirm a linkable plain-text occurrence.
+ */
+export async function unlinkedCandidates(
+  targetId: string,
+  title: string,
+  limit = 20,
+): Promise<(SearchHit & { content: string })[]> {
+  const words = title.trim().split(/\s+/).filter(Boolean);
+  if (title.trim().length < 3 || words.length === 0 || words.length > 8) return [];
+  const phrase = `text_content : "${words.join(' ').replace(/"/g, '""')}"`;
+  const { results } = await db()
+    .prepare(
+      `SELECT o.id, o.type_id, o.title, o.updated_at, o.content,
+              t.name AS type_name, t.slug AS type_slug, t.icon AS type_icon, t.color AS type_color,
+              snippet(objects_fts, 1, char(2), char(3), '…', 14) AS snippet
+       FROM objects_fts
+       JOIN objects o ON o.rowid = objects_fts.rowid
+       JOIN types t ON t.id = o.type_id
+       WHERE objects_fts MATCH ? AND o.deleted_at IS NULL AND o.id != ?
+         AND NOT EXISTS (SELECT 1 FROM links l WHERE l.source_id = o.id AND l.target_id = ?)
+       ORDER BY o.updated_at DESC
+       LIMIT ?`,
+    )
+    .bind(phrase, targetId, targetId, limit)
+    .all<SearchHit & { content: string }>();
+  return results;
+}

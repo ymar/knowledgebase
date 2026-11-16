@@ -1,0 +1,44 @@
+---
+// The tag page: everything linking to this tag, grouped by type.
+import TypeTile from './TypeTile.astro';
+import { getBacklinks } from '../lib/db';
+import { dayLabel } from '../lib/format';
+
+interface Props { tagId: string; tagTitle: string }
+const { tagId, tagTitle } = Astro.props;
+const all = await getBacklinks(tagId, tagTitle);
+const groups = new Map<string, typeof all>();
+for (const b of all) {
+  const key = b.source.type_name;
+  groups.set(key, [...(groups.get(key) ?? []), b]);
+}
+---
+<section aria-labelledby="tagged-h" class="mt-8">
+  <h2 id="tagged-h" class="eyebrow mb-3">Tagged <span class="ml-1 tabular-nums">{all.length}</span></h2>
+  {all.length === 0 ? (
+    <p class="text-sm text-muted">Nothing tagged yet. Type <kbd>#{tagTitle}</kbd> in any document, or add it with the tag field on an object.</p>
+  ) : (
+    <div class="space-y-6">
+      {[...groups].map(([typeName, items]) => (
+        <div>
+          <h3 class="mb-2 text-sm font-semibold">{typeName} <span class="font-normal text-muted">{items.length}</span></h3>
+          <ul class="divide-y divide-line overflow-hidden rounded-xl border border-line bg-card">
+            {items.map(({ source, snippets }) => (
+              <li>
+                <a href={`/o/${source.id}`} class="block px-4 py-3 transition-colors hover:bg-hover">
+                  <span class="flex items-center gap-3">
+                    <TypeTile icon={source.type_icon} color={source.type_color} size="sm" />
+                    <span class="truncate text-[15px]">{source.type_id === 'type_day' ? dayLabel(source.title) : source.title || 'Untitled'}</span>
+                  </span>
+                  {snippets[0] && (
+                    <span class="mt-1.5 line-clamp-2 block pl-9 text-sm text-ink/70">{snippets[0].before}<mark class="rounded bg-hover px-0.5 font-medium text-ink">{snippets[0].match}</mark>{snippets[0].after}</span>
+                  )}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  )}
+</section>

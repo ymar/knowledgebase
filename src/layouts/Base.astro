@@ -2,11 +2,14 @@
 import '../styles/global.css';
 import Icon from '../components/Icon.astro';
 import TypeTile from '../components/TypeTile.astro';
-import { listTypes, countByType } from '../lib/db';
+import CommandPalette from '../components/react/CommandPalette';
+import { listTypes, countByType, listPinned } from '../lib/db';
+import { dayLabel } from '../lib/format';
 
-interface Props { title?: string; activeTypeId?: string; home?: boolean }
-const { title = 'Cairn', activeTypeId, home = false } = Astro.props;
-const [types, counts] = await Promise.all([listTypes(), countByType()]);
+interface Props { title?: string; activeTypeId?: string; activeObjectId?: string; home?: boolean }
+const { title = 'Cairn', activeTypeId, activeObjectId, home = false } = Astro.props;
+const [types, counts, pinned] = await Promise.all([listTypes(), countByType(), listPinned()]);
+const paletteTypes = types.map((t) => ({ id: t.id, name: t.name, slug: t.slug, icon: t.icon, color: t.color }));
 ---
 <!doctype html>
 <html lang="en">
@@ -31,6 +34,7 @@ const [types, counts] = await Promise.all([listTypes(), countByType()]);
       <a href="/" class="flex items-center gap-2 text-[15px] font-semibold">
         <img src="/favicon.svg" alt="" class="h-6 w-6" /> Cairn
       </a>
+      <button data-open-palette class="btn ml-auto px-2.5" aria-label="Search"><Icon name="search" /></button>
     </header>
 
     <div id="scrim" class="fixed inset-0 z-30 hidden bg-black/20 md:hidden"></div>
@@ -42,11 +46,33 @@ const [types, counts] = await Promise.all([listTypes(), countByType()]);
           <img src="/favicon.svg" alt="" class="h-7 w-7" /> Cairn
         </a>
 
+        <button data-open-palette type="button"
+          class="mb-3 flex w-full items-center gap-2.5 rounded-lg border border-line bg-card px-2.5 py-1.5 text-left text-sm text-muted shadow-xs hover:text-ink">
+          <Icon name="search" size={15} /> <span class="flex-1">Search</span> <kbd>⌘K</kbd>
+        </button>
+
         <a href="/" aria-current={home ? 'page' : undefined}
           class="mb-4 flex items-center gap-3 rounded-lg px-2 py-1.5 text-sm text-ink/80 hover:bg-hover aria-[current=page]:bg-card aria-[current=page]:font-medium aria-[current=page]:text-ink aria-[current=page]:shadow-xs">
           <span class="flex h-6 w-6 items-center justify-center text-muted"><Icon name="home" size={16} /></span>
           Home
         </a>
+
+        {pinned.length > 0 && (
+          <>
+            <p class="eyebrow mb-1.5 px-2">Pinned</p>
+            <ul class="mb-5 space-y-0.5">
+              {pinned.map((o) => (
+                <li>
+                  <a href={`/o/${o.id}`} aria-current={o.id === activeObjectId ? 'page' : undefined}
+                    class="flex items-center gap-3 rounded-lg px-2 py-1.5 text-sm text-ink/80 hover:bg-hover aria-[current=page]:bg-card aria-[current=page]:font-medium aria-[current=page]:text-ink aria-[current=page]:shadow-xs">
+                    <TypeTile icon={o.type_icon} color={o.type_color} size="sm" />
+                    <span class="flex-1 truncate">{o.type_id === 'type_day' ? dayLabel(o.title) : o.title || 'Untitled'}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
 
         <p class="eyebrow mb-1.5 px-2">Types</p>
         <ul class="space-y-0.5">
@@ -63,7 +89,10 @@ const [types, counts] = await Promise.all([listTypes(), countByType()]);
           ))}
         </ul>
 
-        <p class="mt-8 px-2 text-xs text-muted"><kbd>n</kbd> new object</p>
+        <p class="mt-8 space-y-1 px-2 text-xs text-muted">
+          <span class="block"><kbd>⌘K</kbd> search and commands</span>
+          <span class="block"><kbd>n</kbd> new object on a type page</span>
+        </p>
       </nav>
 
       <main id="main" class="mx-auto w-full max-w-3xl px-4 pb-24 pt-6 md:px-10 md:pt-14">
@@ -71,7 +100,11 @@ const [types, counts] = await Promise.all([listTypes(), countByType()]);
       </main>
     </div>
 
+    <CommandPalette client:load types={paletteTypes} />
+
     <script is:inline>
+      // Show Ctrl instead of ⌘ outside Apple platforms.
+      if (!/Mac|iPhone|iPad/.test(navigator.platform)) document.querySelectorAll('kbd').forEach((k) => { k.textContent = k.textContent.replace('⌘', 'Ctrl '); });
       const nav = document.getElementById('sidebar');
       const scrim = document.getElementById('scrim');
       const btn = document.getElementById('menu-btn');

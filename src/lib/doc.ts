@@ -144,3 +144,44 @@ export function mentionContexts(blocks: Block[], targetId: string, lookup?: Titl
 
 export const isDocument = (v: unknown): v is Block[] =>
   Array.isArray(v) && v.every((b) => b && typeof b === 'object' && typeof (b as Block).type === 'string');
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Turns the first plain-text occurrence of `title` (case-insensitive, whole
+ * words) into a mention. Table cells are left alone. Returns a new document,
+ * or null if there is no such occurrence.
+ */
+export function linkFirstOccurrence(blocks: Block[], title: string, mention: MentionProps): Block[] | null {
+  const t = title.trim();
+  if (!t) return null;
+  const re = new RegExp(`(?<![\\p{L}\\p{N}])${escapeRe(t)}(?![\\p{L}\\p{N}])`, 'iu');
+  const doc = structuredClone(blocks);
+  let done = false;
+
+  const visit = (list: Block[]) => {
+    for (const b of list) {
+      if (done) return;
+      if (Array.isArray(b.content)) {
+        const items = b.content;
+        for (let i = 0; i < items.length && !done; i++) {
+          const it = items[i];
+          if (it.type !== 'text' || !it.text) continue;
+          const m = re.exec(it.text);
+          if (!m) continue;
+          const before = it.text.slice(0, m.index);
+          const after = it.text.slice(m.index + m[0].length);
+          const parts: Inline[] = [];
+          if (before) parts.push({ ...it, text: before });
+          parts.push({ type: MENTION, props: { ...mention }, content: undefined } as Inline);
+          if (after) parts.push({ ...it, text: after });
+          items.splice(i, 1, ...parts);
+          done = true;
+        }
+      }
+      if (b.children?.length) visit(b.children);
+    }
+  };
+  visit(doc);
+  return done ? doc : null;
+}

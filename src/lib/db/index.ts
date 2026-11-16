@@ -19,3 +19,5 @@ export * from './objects';
 export * from './links';
 export * from './days';
 export * from './search';
+export * from './query';
+export * from './tags';
