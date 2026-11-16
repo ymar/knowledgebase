@@ -9,4 +9,5 @@ export default defineConfig({
   integrations: [react()],
   vite: { plugins: [tailwindcss()] },
   security: { checkOrigin: true },
+  devToolbar: { enabled: false },
 });

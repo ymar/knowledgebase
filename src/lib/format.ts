@@ -14,3 +14,22 @@ export function dayLabel(iso: string): string {
 export function shortDate(iso: string): string {
   return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(iso));
 }
+
+/** Today's date (YYYY-MM-DD) in an IANA time zone. */
+export function todayIn(timeZone: string | undefined): string {
+  try {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: timeZone || 'UTC' }).format(new Date());
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
+
+export function addDays(iso: string, n: number): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Time zone Cloudflare derives from the visitor's IP, when available. */
+export const requestTimeZone = (request: Request): string | undefined =>
+  (request as Request & { cf?: { timezone?: string } }).cf?.timezone;

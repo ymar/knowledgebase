@@ -1,0 +1,13 @@
+---
+import Base from '../../layouts/Base.astro';
+import DayView from '../../components/DayView.astro';
+import { dayLabel, isIsoDay, requestTimeZone, todayIn } from '../../lib/format';
+
+const date = Astro.params.date!;
+if (!isIsoDay(date)) return new Response('Not found', { status: 404 });
+const today = todayIn(requestTimeZone(Astro.request));
+if (date === today) return Astro.redirect('/', 302);
+---
+<Base title={dayLabel(date)} activeTypeId="type_day">
+  <DayView date={date} today={today} />
+</Base>

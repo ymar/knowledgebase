@@ -18,6 +18,8 @@ export interface TypeRow {
   color: string;
   properties: PropertyDef[];
   sort_order: number;
+  /** BlockNote JSON new objects start with. */
+  template: unknown[];
 }
 
 export type PropertyValue = string | number | null;

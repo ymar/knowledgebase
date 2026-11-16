@@ -1,0 +1,41 @@
+---
+import TypeTile from './TypeTile.astro';
+import { getBacklinks } from '../lib/db';
+import { dayLabel } from '../lib/format';
+
+interface Props { targetId: string; targetTitle: string }
+const { targetId, targetTitle } = Astro.props;
+const backlinks = await getBacklinks(targetId, targetTitle);
+const originLabel = { tag: 'Tagged', property: 'Property' } as const;
+---
+<section aria-labelledby="backlinks-h" class="mt-14">
+  <h2 id="backlinks-h" class="eyebrow mb-3">
+    Linked here <span class="ml-1 tabular-nums">{backlinks.length}</span>
+  </h2>
+  {backlinks.length === 0 ? (
+    <p class="text-sm text-muted">Nothing links here yet. Mention this from another object with <kbd>@</kbd>.</p>
+  ) : (
+    <ul class="space-y-3">
+      {backlinks.map(({ source, origins, snippets }) => (
+        <li class="card p-4">
+          <a href={`/o/${source.id}`} class="flex items-center gap-2.5 font-medium hover:underline">
+            <TypeTile icon={source.type_icon} color={source.type_color} size="sm" />
+            <span class="truncate">{source.type_id === 'type_day' ? dayLabel(source.title) : source.title || 'Untitled'}</span>
+            {origins.filter((o) => o !== 'content').map((o) => (
+              <span class="ml-auto rounded-full border border-line px-2 py-0.5 text-[11px] font-normal text-muted">{originLabel[o as 'tag' | 'property']}</span>
+            ))}
+          </a>
+          {snippets.length > 0 && (
+            <ul class="mt-2.5 space-y-1.5 border-l-2 border-line pl-3">
+              {snippets.slice(0, 5).map((s) => (
+                <li class="text-sm leading-relaxed text-ink/75">
+                  {s.before}<mark class="rounded bg-hover px-0.5 font-medium text-ink">{s.match}</mark>{s.after}
+                </li>
+              ))}
+            </ul>
+          )}
+        </li>
+      ))}
+    </ul>
+  )}
+</section>

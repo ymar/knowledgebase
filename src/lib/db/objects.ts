@@ -1,6 +1,8 @@
 import type { ObjectRow, ObjectSummary, PropertyDef, PropertyValue } from '../schema';
 import { newId } from '../ulid';
 import { db, nowIso, parseJson } from './index';
+import { contentLinkStatements } from './links';
+import { extractMentionIds, extractText, type Block } from '../doc';
 
 interface RawObject extends Omit<ObjectRow, 'properties' | 'content'> {
   properties: string;
@@ -58,13 +60,18 @@ export async function createObject(input: {
 }): Promise<string> {
   const id = newId();
   const now = nowIso();
-  await db()
-    .prepare(
-      `INSERT INTO objects (id, type_id, title, properties, content, text_content, created_at, updated_at)
-       VALUES (?, ?, ?, '{}', '[]', '', ?, ?)`,
-    )
-    .bind(id, input.typeId, input.title.trim(), now, now)
-    .run();
+  const d = db();
+  const tpl = await d.prepare('SELECT template FROM types WHERE id = ?').bind(input.typeId).first<{ template: string }>();
+  const content = parseJson<Block[]>(tpl?.template, []);
+  await d.batch([
+    d
+      .prepare(
+        `INSERT INTO objects (id, type_id, title, properties, content, text_content, created_at, updated_at)
+         VALUES (?, ?, ?, '{}', ?, ?, ?, ?)`,
+      )
+      .bind(id, input.typeId, input.title.trim(), JSON.stringify(content), extractText(content), now, now),
+    ...contentLinkStatements(id, extractMentionIds(content), now),
+  ]);
   return id;
 }
 

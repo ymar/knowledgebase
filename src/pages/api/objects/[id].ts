@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { getObject, getTypeById, renameObject, saveProperties, softDeleteObject } from '../../../lib/db';
+import { getObject, getTypeById, renameObject, saveProperties, setTypeTemplate, softDeleteObject } from '../../../lib/db';
 import { parsePropertyForm } from '../../../lib/properties';
 
 export const POST: APIRoute = async ({ params, request, redirect }) => {
@@ -16,9 +16,15 @@ export const POST: APIRoute = async ({ params, request, redirect }) => {
     case 'properties':
       await saveProperties(id, type.properties, parsePropertyForm(type.properties, form));
       break;
+    case 'template':
+      await setTypeTemplate(type.id, object.content);
+      break;
+    case 'clear-template':
+      await setTypeTemplate(type.id, []);
+      break;
     case 'delete':
       await softDeleteObject(id);
-      return redirect(`/t/${type.slug}`, 303);
+      return redirect(type.id === 'type_day' ? '/' : `/t/${type.slug}`, 303);
     default:
       return new Response('Bad action', { status: 400 });
   }

@@ -63,3 +63,40 @@ body { -webkit-tap-highlight-color: transparent; }
 }
 .eyebrow { @apply text-xs font-medium uppercase tracking-wider text-muted; }
 kbd { @apply rounded border border-line bg-card px-1.5 py-0.5 font-sans text-[11px] text-muted; }
+
+/* ---------- editor ---------- */
+.editor-shell { position: relative; min-height: 12rem; }
+.editor-shell .bn-container {
+  --bn-font-family: var(--font-sans);
+  --bn-colors-editor-background: transparent;
+  --bn-colors-editor-text: var(--ink);
+  --bn-border-radius: 10px;
+}
+.editor-shell .bn-editor { padding-inline: 0; font-size: 16px; line-height: 1.65; }
+@media (min-width: 768px) {
+  .editor-shell { margin-left: -54px; }
+  .editor-shell .bn-editor { padding-left: 54px; }
+}
+.save-state {
+  position: fixed; right: 1rem; bottom: 1rem; z-index: 20;
+  border-radius: 999px; border: 1px solid var(--line); background: var(--card);
+  padding: .25rem .65rem; font-size: 12px; color: var(--muted);
+  opacity: 0; transition: opacity .3s;
+}
+.save-state[data-state='saving'], .save-state[data-state='dirty'] { opacity: 1; }
+.save-state[data-state='error'] { opacity: 1; color: #dc2626; border-color: #fecaca; }
+
+.mention {
+  display: inline-flex; align-items: center; gap: .3rem; vertical-align: baseline;
+  padding: 0 .35rem 0 .2rem; border-radius: 6px; font-weight: 500;
+  color: var(--ink); text-decoration: none; cursor: pointer;
+  background: color-mix(in srgb, var(--c) 9%, transparent);
+  box-shadow: inset 0 -1.5px 0 color-mix(in srgb, var(--c) 35%, transparent);
+}
+.mention:hover { background: color-mix(in srgb, var(--c) 16%, transparent); }
+.mention .tile { transform: translateY(1px); }
+.mention-tag { color: var(--c); padding-left: .35rem; gap: .05rem; box-shadow: none; }
+.mention-missing { opacity: .55; text-decoration: line-through; }
+.editor-shell [data-content-type='heading'][data-level='1'] { --level: 1.65em; }
+.editor-shell [data-content-type='heading'][data-level='2'] { --level: 1.35em; }
+.editor-shell [data-content-type='heading'][data-level='3'] { --level: 1.15em; }

@@ -23,6 +23,17 @@ Do not copy Capacities assets, icons, logo or wording.
 - No auth code. Cloudflare Access sits in front.
 - `src/fetch.ts` is a reserved filename in Astro 7. Don't use it.
 
+## Editor notes
+
+- Mentions are a custom inline content type `mention` with props `{ id, title, typeId }`. `title` is a
+  snapshot; pages pass live titles to the island (`src/lib/editor-props.ts`), so chips follow renames.
+- Triggers: `@` and `[[` (objects, days, inline create), `#` (tags; not at line start, so `# ` stays a heading),
+  `/` (blocks). Date words: today, tomorrow, yesterday, or `YYYY-MM-DD`.
+- Autosave: 800 ms debounce, PUT JSON, retry on failure, flush on tab hide, Cmd/Ctrl+S saves now.
+- Day notes are created on first save (`PUT /api/days/:date/content`), so browsing dates leaves no empty rows.
+  "Today" uses Cloudflare's `request.cf.timezone`, UTC in local dev.
+- `astro dev` runs as a managed background process: stop it with `npx astro dev stop` before `db:reset`.
+
 ## Code rules
 
 - All SQL lives in `src/lib/db/`. Pages, components and endpoints call typed functions only.
@@ -61,7 +72,7 @@ npm run check && npm run build
 Phases from the original spec. Status in brackets.
 
 1. Foundation [done]: setup, migrations, seed, sidebar, list per type, detail, create/rename/delete, property form.
-2. Editor and links: BlockNote with debounced autosave, `@` mention search + inline create,
+2. Editor and links [done]: BlockNote with debounced autosave, `@` mention search + inline create,
    backlinks with surrounding text, today's daily note as home with prev/next.
 3. Find things: Cmd+K palette (FTS, jump, create), filter and sort list pages, tag pages.
 4. Files and types: R2 upload from editor, type editor UI, JSON export.
@@ -77,14 +88,14 @@ Items marked SCHEMA need approval of the SQL before building.
 
 ### Fold into phase 2 (P1)
 
-- [ ] **`[[` as a second link trigger**, same menu as `@`.
-- [ ] **Inline tags in the editor**: `#` opens a tag picker, inserts a tag mention (stored as a `content` link
+- [x] **`[[` as a second link trigger**, same menu as `@`.
+- [x] **Inline tags in the editor**: `#` opens a tag picker, inserts a tag mention (stored as a `content` link
       to the tag object). Creates the tag inline if missing. Gives tags on blocks for free.
-- [ ] **Date mentions**: `@today`, `@tomorrow`, `@2026-11-20` resolve to (and create) Day objects.
-- [ ] **Daily note date bar**: a week strip with the current day highlighted, prev/next, and a date picker to jump.
-- [ ] **"On this day" on daily notes**: objects created or edited that day, listed under the editor.
-- [ ] **Templates per type** SCHEMA: `types.template TEXT` (BlockNote JSON). New objects start with it.
-- [ ] **Enable BlockNote's built-in blocks**: headings, lists, checklists, toggles, quote, code (with
+- [x] **Date mentions**: `@today`, `@tomorrow`, `@2026-11-20` resolve to (and create) Day objects.
+- [x] **Daily note date bar**: a week strip with the current day highlighted, prev/next, and a date picker to jump.
+- [x] **"On this day" on daily notes**: objects created or edited that day, listed under the editor.
+- [x] **Templates per type** SCHEMA: `types.template TEXT` (BlockNote JSON). New objects start with it.
+- [x] **Enable BlockNote's built-in blocks**: headings, lists, checklists, toggles, quote, code (with
       highlighting), table, divider. No custom work beyond config.
 
 ### Fold into phase 3 (P1)

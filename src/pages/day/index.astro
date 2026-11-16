@@ -1,0 +1,6 @@
+---
+// Target of the date picker form: /day?d=YYYY-MM-DD
+import { isIsoDay } from '../../lib/format';
+const d = Astro.url.searchParams.get('d') ?? '';
+return Astro.redirect(isIsoDay(d) ? `/day/${d}` : '/', 303);
+---

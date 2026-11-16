@@ -1,13 +1,15 @@
 import type { PropertyDef, TypeRow } from '../schema';
 import { db, parseJson } from './index';
 
-interface RawType extends Omit<TypeRow, 'properties'> {
+interface RawType extends Omit<TypeRow, 'properties' | 'template'> {
   properties: string;
+  template: string;
 }
 
 const hydrate = (r: RawType): TypeRow => ({
   ...r,
   properties: parseJson<PropertyDef[]>(r.properties, []),
+  template: parseJson<unknown[]>(r.template, []),
 });
 
 export async function listTypes(): Promise<TypeRow[]> {
@@ -33,4 +35,8 @@ export async function countByType(): Promise<Record<string, number>> {
     .prepare('SELECT type_id, COUNT(*) AS n FROM objects WHERE deleted_at IS NULL GROUP BY type_id')
     .all<{ type_id: string; n: number }>();
   return Object.fromEntries(results.map((r) => [r.type_id, r.n]));
+}
+
+export async function setTypeTemplate(typeId: string, template: unknown[]): Promise<void> {
+  await db().prepare('UPDATE types SET template = ? WHERE id = ?').bind(JSON.stringify(template), typeId).run();
 }
