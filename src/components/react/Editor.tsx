@@ -272,6 +272,35 @@ export default function Editor(props: {
     [editor],
   );
 
+  /**
+   * Quick add (the "+ Type" chips on daily notes): create an object and add a
+   * line referencing it at the end of this document. Done here, in the editor,
+   * so it merges with unsaved typing and goes out with the normal autosave.
+   */
+  useEffect(() => {
+    const onAdd = async (e: Event) => {
+      const { typeId, title } = (e as CustomEvent<{ typeId: string; title: string }>).detail;
+      const s = await api<Summary>('/api/objects', {
+        method: 'POST',
+        body: JSON.stringify({ typeId, title, workspaceId: props.workspaceId }),
+      });
+      setRefs((r) => ({ ...r, [s.id]: { title: s.title, typeId: s.type_id } }));
+      const block = { type: 'paragraph' as const, content: [{ type: 'mention' as const, props: { id: s.id, title: s.title, typeId: s.type_id } }, ' '] };
+      const doc = editor.document;
+      const last = doc[doc.length - 1];
+      const lastEmpty = last && last.type === 'paragraph' && Array.isArray(last.content) && last.content.length === 0;
+      if (lastEmpty) editor.updateBlock(last, block as never);
+      else editor.insertBlocks([block as never], last, 'after');
+      window.dispatchEvent(new CustomEvent('kb:reference-added', { detail: s }));
+    };
+    window.addEventListener('kb:add-reference', onAdd);
+    (window as unknown as { kbEditorReady?: boolean }).kbEditorReady = true;
+    return () => {
+      window.removeEventListener('kb:add-reference', onAdd);
+      (window as unknown as { kbEditorReady?: boolean }).kbEditorReady = false;
+    };
+  }, [editor, props.workspaceId]);
+
   const toItem = useCallback(
     (s: Summary, group: string): DefaultReactSuggestionItem => ({
       title: s.type_id === DAY ? dayLabel(s.title) : s.title || 'Untitled',

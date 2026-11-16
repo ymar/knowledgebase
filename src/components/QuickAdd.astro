@@ -1,0 +1,94 @@
+---
+/**
+ * "+ Type" chips under a daily note's date: create an object of that type and
+ * reference it in the day's note. The Editor island does the insert (see
+ * `kb:add-reference` in Editor.tsx).
+ */
+import Icon from './Icon.astro';
+import TypeTile from './TypeTile.astro';
+import type { TypeRow } from '../lib/schema';
+
+interface Props { types: TypeRow[] }
+const types = Astro.props.types.filter((t) => t.id !== 'type_day' && t.id !== 'type_tag');
+---
+{types.length > 0 && (
+  <div data-quick-add class="mt-4">
+    <div class="flex flex-wrap gap-2" role="group" aria-label="Add to this day">
+      {types.map((t) => (
+        <button type="button" data-qa-type={t.id} data-qa-name={t.name}
+          class="inline-flex items-center gap-1.5 rounded-lg border border-line bg-card py-1 pl-2 pr-2.5 text-sm text-ink/80 shadow-xs transition hover:border-ink/25 hover:text-ink aria-pressed:border-ink/40 aria-pressed:text-ink">
+          <Icon name="plus" size={13} class="text-muted" />
+          <TypeTile icon={t.icon} color={t.color} size="sm" />
+          {t.name}
+        </button>
+      ))}
+    </div>
+    <form data-qa-form hidden class="mt-2 flex gap-2">
+      <input data-qa-input required autocomplete="off" class="field flex-1" aria-label="Name" />
+      <button class="btn-primary" type="submit">Add</button>
+      <button class="btn" type="button" data-qa-cancel>Cancel</button>
+    </form>
+    <p data-qa-status class="mt-1.5 text-sm text-muted" aria-live="polite"></p>
+  </div>
+)}
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-quick-add]').forEach((root) => {
+    const form = root.querySelector<HTMLFormElement>('[data-qa-form]')!;
+    const input = root.querySelector<HTMLInputElement>('[data-qa-input]')!;
+    const status = root.querySelector<HTMLElement>('[data-qa-status]')!;
+    const chips = [...root.querySelectorAll<HTMLButtonElement>('[data-qa-type]')];
+    let typeId = '';
+    let chip: HTMLButtonElement | null = null;
+
+    const close = () => {
+      form.hidden = true;
+      chips.forEach((c) => c.removeAttribute('aria-pressed'));
+      chip?.focus();
+    };
+    chips.forEach((c) =>
+      c.addEventListener('click', () => {
+        const again = typeId === c.dataset.qaType && !form.hidden;
+        if (again) return close();
+        typeId = c.dataset.qaType!;
+        chip = c;
+        chips.forEach((x) => x.toggleAttribute('aria-pressed', x === c));
+        input.placeholder = `New ${c.dataset.qaName!.toLowerCase()}…`;
+        input.value = '';
+        status.textContent = '';
+        form.hidden = false;
+        input.focus();
+      }),
+    );
+    root.querySelector('[data-qa-cancel]')!.addEventListener('click', close);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        close();
+      }
+    });
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const title = input.value.trim();
+      if (!title) return;
+      // The editor island may still be loading right after page load.
+      for (let i = 0; i < 20 && !(window as unknown as { kbEditorReady?: boolean }).kbEditorReady; i++) {
+        await new Promise((r) => setTimeout(r, 150));
+      }
+      const done = new Promise<{ id: string; title: string }>((resolve) =>
+        window.addEventListener('kb:reference-added', (ev) => resolve((ev as CustomEvent).detail), { once: true }),
+      );
+      window.dispatchEvent(new CustomEvent('kb:add-reference', { detail: { typeId, title } }));
+      const s = await done;
+      status.innerHTML = '';
+      const link = document.createElement('a');
+      link.href = `/o/${s.id}`;
+      link.className = 'font-medium text-ink underline underline-offset-2';
+      link.textContent = s.title;
+      status.appendChild(document.createTextNode('Added '));
+      status.appendChild(link);
+      status.appendChild(document.createTextNode(' to this day.'));
+      close();
+    });
+  });
+</script>

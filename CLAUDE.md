@@ -67,6 +67,9 @@ Do not copy Capacities assets, icons, logo or wording.
   PageUp/Down, Home/End, Enter, Esc). `navigate` mode opens a day note; `field` mode fills a hidden input.
   Native date inputs remain only in the type-page filter row. Theme: `theme` cookie -> `<html data-theme>`.
 - App name in the UI and tab title is "KB".
+- Daily notes have "+ Type" quick-add chips under the date (`src/components/QuickAdd.astro`): enabled types of
+  the workspace minus Day and Tag. The page dispatches `kb:add-reference`; the Editor creates the object and appends
+  a line with its mention, so it merges with unsaved typing and saves through normal autosave.
 - `astro dev` runs as a managed background process: stop it with `npx astro dev stop` before `db:reset`.
 
 ## Code rules
