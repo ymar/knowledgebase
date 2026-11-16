@@ -1,5 +1,5 @@
 {
-  "name": "cairn",
+  "name": "knowledgebase",
   "main": "@astrojs/cloudflare/entrypoints/server",
   "compatibility_date": "2026-11-01",
   "compatibility_flags": ["nodejs_compat"],
