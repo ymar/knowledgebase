@@ -77,7 +77,7 @@ const notice = Astro.url.searchParams.get('notice');
     <form method="post" action={`/api/objects/${object.id}`}>
       <input type="hidden" name="_action" value={pinned ? 'unpin' : 'pin'} />
       <button type="submit" aria-pressed={pinned ? 'true' : 'false'}
-        class="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-muted hover:bg-hover hover:text-ink aria-pressed:text-ink">
+        class="-mr-2 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-muted hover:bg-hover hover:text-ink aria-pressed:text-ink">
         <Icon name="pin" size={15} /> {pinned ? 'Pinned' : 'Pin'}
       </button>
     </form>
@@ -110,7 +110,7 @@ const notice = Astro.url.searchParams.get('notice');
         <input type="hidden" name="_action" value="add-tag" />
         <label class="sr-only" for="add-tag">Add tag</label>
         <input id="add-tag" name="tag" list="tag-options" placeholder="+ Add tag" autocomplete="off"
-          class="w-32 rounded-md bg-transparent px-1.5 py-0.5 text-sm text-muted placeholder:text-muted focus:bg-card focus:text-ink focus:outline-none focus:ring-1 focus:ring-line" />
+          class="-ml-1.5 w-32 rounded-md bg-transparent px-1.5 py-0.5 text-sm text-muted placeholder:text-muted focus:bg-card focus:text-ink focus:outline-none focus:ring-1 focus:ring-line" />
         <datalist id="tag-options">{tagOptions.map((t) => <option value={t.title} />)}</datalist>
       </form>
     </div>
@@ -178,7 +178,7 @@ const notice = Astro.url.searchParams.get('notice');
         <button class="rounded-lg px-2 py-1.5 text-muted hover:bg-hover hover:text-ink" type="submit">Clear template</button>
       </form>
     )}
-    <form method="post" action={`/api/objects/${object.id}`}
+    <form method="post" action={`/api/objects/${object.id}`} class="-mr-2"
       onsubmit="return confirm('Delete this object? It stays in the database but disappears from the app.')">
       <input type="hidden" name="_action" value="delete" />
       <button class="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-muted hover:bg-hover hover:text-red-600" type="submit">
