@@ -1,19 +1,20 @@
 ---
 import type { ObjectSummary } from '../lib/schema';
+import TypeTile from './TypeTile.astro';
 import { dayLabel, shortDate } from '../lib/format';
-interface Props { items: ObjectSummary[]; showType?: boolean }
-const { items, showType = false } = Astro.props;
+interface Props { items: ObjectSummary[]; empty?: string }
+const { items, empty = 'Nothing here yet.' } = Astro.props;
 ---
 {items.length === 0 ? (
-  <p class="rounded-md border border-dashed border-line p-6 text-center text-muted">Nothing here yet.</p>
+  <p class="rounded-xl border border-dashed border-line px-6 py-10 text-center text-sm text-muted">{empty}</p>
 ) : (
-  <ul class="divide-y divide-line rounded-md border border-line">
+  <ul class="divide-y divide-line overflow-hidden rounded-xl border border-line bg-card">
     {items.map((o) => (
       <li>
-        <a href={`/o/${o.id}`} class="flex items-center gap-3 px-4 py-3.5 hover:bg-panel">
-          {showType && <span aria-hidden="true" style={`color:${o.type_color}`}>{o.type_icon}</span>}
-          <span class="flex-1 truncate">{o.type_id === 'type_day' ? dayLabel(o.title) : (o.title || 'Untitled')}</span>
-          <span class="text-xs text-muted">{shortDate(o.updated_at)}</span>
+        <a href={`/o/${o.id}`} class="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-hover">
+          <TypeTile icon={o.type_icon} color={o.type_color} size="sm" />
+          <span class="flex-1 truncate text-[15px]">{o.type_id === 'type_day' ? dayLabel(o.title) : (o.title || 'Untitled')}</span>
+          <span class="text-xs tabular-nums text-muted">{shortDate(o.updated_at)}</span>
         </a>
       </li>
     ))}

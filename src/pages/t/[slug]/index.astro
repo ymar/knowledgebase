@@ -1,6 +1,8 @@
 ---
 import Base from '../../../layouts/Base.astro';
 import ObjectList from '../../../components/ObjectList.astro';
+import TypeTile from '../../../components/TypeTile.astro';
+import Icon from '../../../components/Icon.astro';
 import { getTypeBySlug, listObjectsByType } from '../../../lib/db';
 
 const type = await getTypeBySlug(Astro.params.slug!);
@@ -10,12 +12,15 @@ const error = Astro.url.searchParams.get('error');
 const isDay = type.id === 'type_day';
 ---
 <Base title={type.name} activeTypeId={type.id}>
-  <div class="flex items-baseline gap-3">
-    <span aria-hidden="true" class="text-3xl" style={`color:${type.color}`}>{type.icon}</span>
-    <h1 class="font-serif text-4xl font-semibold">{type.name}</h1>
+  <div class="flex items-center gap-4">
+    <TypeTile icon={type.icon} color={type.color} size="lg" />
+    <div>
+      <h1 class="text-3xl font-bold tracking-tight md:text-4xl">{type.name}</h1>
+      <p class="text-sm text-muted">{items.length} {items.length === 1 ? 'object' : 'objects'}</p>
+    </div>
   </div>
 
-  <form method="post" action="/api/objects" class="mt-6 flex gap-2">
+  <form method="post" action="/api/objects" class="mt-8 flex gap-2">
     <input type="hidden" name="typeId" value={type.id} />
     <input
       name="title" required data-new-object autocomplete="off"
@@ -24,9 +29,9 @@ const isDay = type.id === 'type_day';
       aria-label={`New ${type.name.toLowerCase()}`}
       class="field flex-1"
     />
-    <button class="btn-primary" type="submit">Create</button>
+    <button class="btn-primary" type="submit"><Icon name="plus" size={16} /> <span class="hidden sm:inline">Create</span></button>
   </form>
   {error && <p role="alert" class="mt-2 text-sm text-red-600">{error}</p>}
 
-  <div class="mt-8"><ObjectList items={items} /></div>
+  <div class="mt-6"><ObjectList items={items} empty={`No ${type.name.toLowerCase()} objects yet. Press n to create one.`} /></div>
 </Base>

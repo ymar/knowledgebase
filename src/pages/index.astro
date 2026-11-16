@@ -1,12 +1,28 @@
 ---
 import Base from '../layouts/Base.astro';
 import ObjectList from '../components/ObjectList.astro';
-import { listRecent } from '../lib/db';
-const recent = await listRecent(15);
+import TypeTile from '../components/TypeTile.astro';
+import { listRecent, listTypes, countByType } from '../lib/db';
+const [recent, types, counts] = await Promise.all([listRecent(12), listTypes(), countByType()]);
 ---
-<Base>
-  <h1 class="font-serif text-4xl font-semibold">Cairn</h1>
-  <p class="mt-2 text-muted">Everything you've piled up, most recent first.</p>
-  <h2 class="mb-3 mt-10 text-xs font-semibold uppercase tracking-wide text-muted">Recent</h2>
-  <ObjectList items={recent} showType />
+<Base home>
+  <h1 class="text-3xl font-bold tracking-tight md:text-4xl">Home</h1>
+  <p class="mt-2 text-muted">Everything you've collected, by type.</p>
+
+  <ul class="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3">
+    {types.map((t) => (
+      <li>
+        <a href={`/t/${t.slug}`} class="card flex items-center gap-3 p-4">
+          <TypeTile icon={t.icon} color={t.color} />
+          <span class="min-w-0">
+            <span class="block truncate text-[15px] font-semibold">{t.name}</span>
+            <span class="block text-xs text-muted">{counts[t.id] ?? 0} {(counts[t.id] ?? 0) === 1 ? 'object' : 'objects'}</span>
+          </span>
+        </a>
+      </li>
+    ))}
+  </ul>
+
+  <h2 class="eyebrow mb-3 mt-12">Recently edited</h2>
+  <ObjectList items={recent} empty="Nothing yet. Pick a type and create your first object." />
 </Base>
