@@ -21,6 +21,7 @@ Do not copy Capacities assets, icons, logo or wording.
 - BlockNote 0.57 (`@blocknote/core`, `/react`, `/mantine`), content stored as JSON.
 - Plain SQL migrations in `migrations/`, applied with `wrangler d1 migrations apply`. No ORM.
 - No auth code. Cloudflare Access sits in front (enabled on `knowledgebase.ymar.workers.dev`; email one-time PIN).
+  The only token check in the app is `/mcp`, which verifies the Access JWT (`src/lib/access.ts`).
 - `src/fetch.ts` is a reserved filename in Astro 7. Don't use it.
 
 ## Editor notes
@@ -91,6 +92,17 @@ Do not copy Capacities assets, icons, logo or wording.
 - Editor embeds (`src/components/react/blocks.tsx`): `/ Query` embeds a saved view as a live list; `/ Object card`
   shows an object as a small or wide card and counts as a link (doc.ts `OBJECT_CARD`). Selected-embed highlight is
   hidden while the editor isn't focused (global.css).
+- Tasks, closer to Capacities (migration 0012): Task also has Status, Priority, Context (relation to any type,
+  several), Repeat and Repeat from. Ticking goes through `completeTask` (`src/lib/db/tasks.ts`): one-off tasks get
+  `done_at` (shown on that day's note under "Completed this day"); repeating tasks move their Date on
+  (`src/lib/task-logic.ts`) and record `last_done`. Property saves merge with `json_patch` so these hidden keys
+  survive. Inline title syntax for new tasks: `!`..`!!!` and today/tomorrow/weekday/next week/YYYY-MM-DD (a typed
+  date word wins over the page's date). Shortcuts: `() title` + Enter in the editor, Cmd/Ctrl+Shift+T anywhere.
+  Today's note offers "Move open to tomorrow / Monday". Objects show a Tasks section for tasks with them as Context.
+- MCP server at `/mcp` (`src/lib/mcp/server.ts`, MCP SDK v2 `createMcpHandler`, stateless). Tools: list_workspaces,
+  list_types, search, get_object, list_objects, get_daily_note, append_to_daily_note, create_object, update_object,
+  list_tasks, create_task, complete_task. No deletes. Markdown in, via `src/lib/from-markdown.ts` ([[Title]] links).
+  Auth: Cloudflare Access with Managed OAuth; vars ACCESS_TEAM_DOMAIN, ACCESS_AUD, TIMEZONE in wrangler.jsonc.
 - `astro dev` runs as a managed background process: stop it with `npx astro dev stop` before `db:reset`.
 
 ## Code rules
@@ -214,7 +226,7 @@ Ranked by value for daily use. SCHEMA items need the SQL approved first.
 
 ### Follow-ups from the Capacities docs (tasks, queries, collections, bulk actions)
 
-- [ ] **Tasks, closer to Capacities**: Status (Not started / Next up / In progress / Done) and Priority (`!`..`!!!`),
+- [x] **Tasks, closer to Capacities**: Status (Not started / Next up / In progress / Done) and Priority (`!`..`!!!`),
       Context (link to a project or meeting; a Tasks tab on that object), `()` + space and Cmd/Ctrl+Shift+T to
       create, inline syntax ("!! tomorrow"), recurring tasks (fixed schedule or after completion), "move today's
       tasks to tomorrow", and tasks completed on a day shown on that day's note (needs a done date).

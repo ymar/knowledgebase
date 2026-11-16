@@ -61,11 +61,15 @@ export default function CommandPalette({
   types,
   workspaces = [],
   currentWorkspace,
+  taskTypeId,
 }: {
   types: PaletteType[];
   workspaces?: PaletteWorkspace[];
   currentWorkspace?: string;
+  /** The workspace's Task type, if on: enables Cmd/Ctrl+Shift+T. */
+  taskTypeId?: string | null;
 }) {
+  const [taskMode, setTaskMode] = useState(false);
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const [hits, setHits] = useState<Hit[]>([]);
@@ -82,6 +86,7 @@ export default function CommandPalette({
   }, []);
   const hide = useCallback(() => {
     setOpen(false);
+    setTaskMode(false);
     setQ('');
     (lastFocus.current as HTMLElement | null)?.focus?.();
   }, []);
@@ -89,7 +94,16 @@ export default function CommandPalette({
   // Cmd/Ctrl+K anywhere, plus any [data-open-palette] button.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Cmd/Ctrl+Shift+T: quick-add a task from anywhere (Capacities' shortcut).
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === 't' && taskTypeId) {
+        e.preventDefault();
+        e.stopPropagation();
+        setTaskMode(true);
+        if (!open) show();
+        return;
+      }
       if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') {
+        setTaskMode(false);
         // Capture phase + stop: Cmd+K is the palette everywhere, including inside the
         // editor (BlockNote's own Mod+K link shortcut; links stay in the formatting toolbar).
         e.preventDefault();
@@ -139,6 +153,32 @@ export default function CommandPalette({
 
   const actions = useMemo<Action[]>(() => {
     const out: Action[] = [];
+    if (taskMode) {
+      const title = q.trim();
+      const task = types.find((t) => t.id === taskTypeId);
+      if (title && task && taskTypeId) {
+        out.push({
+          key: 'quick-task',
+          group: 'New task',
+          label: title,
+          detail: 'Enter to add · ! to !!! priority · today, tomorrow, a weekday',
+          icon: task,
+          run: async () => {
+            const res = await fetch('/api/objects', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ typeId: taskTypeId, title, workspaceId: currentWorkspace }),
+            });
+            if (res.ok) {
+              setQ('');
+              hide();
+              if (location.pathname === '/tasks' || location.pathname === '/' || location.pathname.startsWith('/day/')) location.reload();
+            }
+          },
+        });
+      }
+      return out;
+    }
     const go = (url: string) => () => void (window.location.href = url);
     for (const h of hits) {
       out.push({
@@ -217,7 +257,7 @@ export default function CommandPalette({
       }
     }
     return out;
-  }, [hits, recent, q, types, workspaces, currentWorkspace, hide]);
+  }, [hits, recent, q, types, workspaces, currentWorkspace, hide, taskMode, taskTypeId]);
 
   const run = useCallback(
     async (a: Action | undefined) => {
@@ -268,7 +308,7 @@ export default function CommandPalette({
             ref={input}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search, jump to, or create…"
+            placeholder={taskMode ? 'New task… try “Call the bank !! friday”' : 'Search, jump to, or create…'}
             aria-label="Search"
             aria-controls="palette-list"
             aria-activedescendant={actions[active] ? `pal-${active}` : undefined}

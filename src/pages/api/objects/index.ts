@@ -1,6 +1,8 @@
 import type { APIRoute } from 'astro';
-import { createObject, findByTitle, findDay, getSummaries, getTypeById, typeBelongsTo } from '../../../lib/db';
-import { isIsoDay } from '../../../lib/format';
+import { createObject, findByTitle, findDay, getSummaries, getTypeById, isTaskType, saveProperties, typeBelongsTo } from '../../../lib/db';
+import { parseTaskTitle } from '../../../lib/task-logic';
+import type { PropertyValue } from '../../../lib/schema';
+import { isIsoDay, requestTimeZone, todayIn } from '../../../lib/format';
 import { json } from '../../../lib/http';
 import { TAG_TYPE_ID } from '../../../lib/schema';
 import { resolveWs } from '../../../lib/workspace';
@@ -12,7 +14,7 @@ import { resolveWs } from '../../../lib/workspace';
 export const POST: APIRoute = async ({ request, redirect, locals }) => {
   const isJson = request.headers.get('content-type')?.includes('application/json');
   const input = isJson
-    ? ((await request.json().catch(() => ({}))) as { typeId?: string; title?: string; workspaceId?: string; date?: string; back?: string })
+    ? ((await request.json().catch(() => ({}))) as { typeId?: string; title?: string; workspaceId?: string; date?: string; back?: string; context?: string })
     : Object.fromEntries(await request.formData());
   const ws = resolveWs(locals, input.workspaceId ? String(input.workspaceId) : null);
   const typeId = String(input.typeId ?? '');
@@ -34,9 +36,25 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
     id = await findByTitle(ws, TAG_TYPE_ID, title);
   }
   // Quick add on a daily note: fill the type's daily-note date property with that day.
-  const date = String(input.date ?? '');
-  const properties = type.day_key && isIsoDay(date) ? { [type.day_key]: date } : undefined;
-  id ??= await createObject({ workspaceId: ws, typeId: type.id, title, properties });
+  let date = String(input.date ?? '');
+  let finalTitle = title;
+  const properties: Record<string, PropertyValue> = {};
+  // Tasks: "!" .. "!!!" and date words in the title set Priority and Date ("Call bank !! friday").
+  if (isTaskType(type.id) && !id) {
+    const parsed = parseTaskTitle(title, todayIn(requestTimeZone(request)));
+    finalTitle = parsed.title;
+    if (parsed.priority) properties.priority = parsed.priority;
+    // A date word you typed wins over the page's date ("() Call bank friday" on today's note).
+    if (parsed.date) date = parsed.date;
+    const context = String(input.context ?? '');
+    if (context) properties.context = [context];
+  }
+  if (type.day_key && isIsoDay(date)) properties[type.day_key] = date;
+  if (!id) {
+    id = await createObject({ workspaceId: ws, typeId: type.id, title: finalTitle, properties });
+    // A Context is a relation: write its link rows the normal way.
+    if (properties.context) await saveProperties(id, type.properties, properties);
+  }
 
   // Forms may ask to return where they came from (e.g. the Tasks page); only local paths.
   const back = String(input.back ?? '');

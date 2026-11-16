@@ -89,7 +89,8 @@ const fmt = (iso: string, opt: Intl.DateTimeFormatOptions) =>
   ))}
 </nav>
 
-<TaskList planned={tasks.planned} due={tasks.due} today={today} />
+<TaskList planned={tasks.planned} due={tasks.due} completed={tasks.completed} today={today}
+  moveOpen={date === today ? { ws, back: '/' } : undefined} />
 
 <div class="mt-8">
   <Editor client:only="react" saveUrl={`/api/days/${date}/content?ws=${ws}`} workspaceId={ws} taskTypeId={taskTypeId} dayDate={date} initialContent={initial} refs={refs} types={types} selfId={dayId} />

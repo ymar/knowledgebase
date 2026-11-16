@@ -115,6 +115,7 @@ const notice = Astro.url.searchParams.get('notice');
                 <option value="many" selected={p.multiple}>Several objects</option>
               </select>
               <select name="p_target" aria-label="Relation target" class:list={['field', p.kind !== 'relation' && 'hidden']} data-for="relation">
+                <option value="" selected={p.kind === 'relation' && !p.target}>Links to any type</option>
                 {types.map((t) => <option value={t.slug} selected={p.target === t.slug}>Links to {t.name}</option>)}
               </select>
             </div>

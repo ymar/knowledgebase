@@ -12,6 +12,13 @@
       "migrations_dir": "migrations"
     }
   ],
+  // Public identifiers for verifying Cloudflare Access tokens on /mcp (not secrets).
+  // AUD = the Access application's audience tag; TIMEZONE = "today" for MCP calls.
+  "vars": {
+    "ACCESS_TEAM_DOMAIN": "https://ymar.cloudflareaccess.com",
+    "ACCESS_AUD": "252c176629c2cc402ce09edba7fae1210699e9f51cc4407a0022205ebbaa8158",
+    "TIMEZONE": "Europe/Amsterdam"
+  },
   "r2_buckets": [
     { "binding": "FILES", "bucket_name": "kb-files" }
   ]

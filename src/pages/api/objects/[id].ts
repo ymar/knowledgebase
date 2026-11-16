@@ -1,11 +1,12 @@
 import type { APIRoute } from 'astro';
 import {
-  addTag, addToCollectionByName, changeType, mergeTags, removeFromCollection, typeBelongsTo, createObject, findByTitle, getObject, getTypeById, removeTag, renameObject,
+  addTag, addToCollectionByName, changeType, completeTask, isTaskType, mergeTags, removeFromCollection, typeBelongsTo, createObject, findByTitle, getObject, getTypeById, removeTag, renameObject,
   saveProperties, setPinned, setTypeTemplate, softDeleteObject,
 } from '../../../lib/db';
 import { parsePropertyForm } from '../../../lib/properties';
 import { linkMention } from '../../../lib/unlinked';
 import { TAG_TYPE_ID } from '../../../lib/schema';
+import { requestTimeZone, todayIn } from '../../../lib/format';
 
 export const POST: APIRoute = async ({ params, request, redirect }) => {
   const id = params.id!;
@@ -21,9 +22,15 @@ export const POST: APIRoute = async ({ params, request, redirect }) => {
     case 'rename':
       if (type.id !== 'type_day') await renameObject(id, field('title'));
       break;
-    case 'properties':
-      await saveProperties(id, type.properties, parsePropertyForm(type.properties, form));
+    case 'properties': {
+      const values = parsePropertyForm(type.properties, form);
+      await saveProperties(id, type.properties, values);
+      // Ticking Done in the form behaves like the task list: recurrence and completion date.
+      if (isTaskType(type.id) && 'done' in values && (values.done === true) !== (object.properties.done === true)) {
+        await completeTask(id, values.done === true, todayIn(requestTimeZone(request)));
+      }
       break;
+    }
     case 'template':
       await setTypeTemplate(type.id, object.content);
       return back(`New ${type.name.toLowerCase()} objects will start with this document.`);

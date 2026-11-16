@@ -168,7 +168,7 @@ const paletteTypes = types.map((t) => ({ id: t.id, name: t.name, slug: t.slug, i
       </main>
     </div>
 
-    <CommandPalette client:load types={paletteTypes} workspaces={Astro.locals.workspaces.map((w) => ({ id: w.id, name: w.name, color: w.color }))} currentWorkspace={ws.id} />
+    <CommandPalette client:load types={paletteTypes} taskTypeId={taskType?.enabled ? taskType.id : null} workspaces={Astro.locals.workspaces.map((w) => ({ id: w.id, name: w.name, color: w.color }))} currentWorkspace={ws.id} />
 
     <script is:inline>
       // Theme: applied live, remembered in a cookie for server rendering. Also used by the palette.

@@ -1,9 +1,12 @@
 ---
 /**
- * Tasks on a daily note: planned for the day, plus (today only) open tasks that are
- * overdue or due. Always rendered (hidden while empty) so "+ Task" can add rows live.
+ * A task list: grouped rows you tick in place. Used on daily notes (Planned / Overdue and
+ * due / Completed), the Tasks page and object pages (tasks with this object as Context).
+ * Always rendered (hidden while empty) so "+ Task" can add rows live.
  */
-import type { TaskRow } from '../lib/db';
+import { getSummaries, type TaskRow } from '../lib/db';
+import { relationIds } from '../lib/schema';
+import { addDays } from '../lib/format';
 
 interface Group { key: string; label: string; items: TaskRow[] }
 interface Props {
@@ -11,23 +14,60 @@ interface Props {
   /** Daily note shape. */
   planned?: TaskRow[];
   due?: TaskRow[];
-  /** Tasks page shape: any groups, shown with headings. */
+  completed?: TaskRow[];
+  /** Any groups, shown with headings when there are several. */
   groups?: Group[];
-  /** Show the section even when empty (Tasks page). */
+  /** Show the section even when empty. */
   always?: boolean;
   heading?: string;
+  /** Daily note of today: offer "Move to tomorrow" for open planned and overdue tasks. */
+  moveOpen?: { ws: string; back: string };
+  /** Hide context links pointing at this object (on that object's own page). */
+  hideContext?: string;
 }
-const { today, always = false, heading = 'Tasks' } = Astro.props;
+const { today, always = false, heading = 'Tasks', moveOpen, hideContext } = Astro.props;
 const groups: Group[] = Astro.props.groups ?? [
   { key: 'planned', label: 'Planned', items: Astro.props.planned ?? [] },
   { key: 'due', label: 'Overdue and due', items: Astro.props.due ?? [] },
+  { key: 'completed', label: 'Completed this day', items: Astro.props.completed ?? [] },
 ];
-const showHeadings = Astro.props.groups ? Astro.props.groups.length > 1 : (Astro.props.due ?? []).length > 0;
+const nonEmpty = groups.filter((g) => g.items.length > 0).length;
+const showHeadings = Astro.props.groups ? groups.length > 1 : nonEmpty > 1 || (Astro.props.due ?? []).length > 0;
 const short = (iso: string) => new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
 const empty = groups.every((g) => g.items.length === 0) && !always;
+
+// Titles of Context objects, for the small links on each row.
+const contextIds = [...new Set(groups.flatMap((g) => g.items.flatMap((t) => relationIds(safeParse(t.context)))))].filter((id) => id !== hideContext);
+const contexts = await getSummaries(contextIds);
+function safeParse(v: string | null): unknown {
+  if (!v) return null;
+  try { return JSON.parse(v); } catch { return v; }
+}
+const PRIO: Record<string, { marks: string; cls: string }> = {
+  High: { marks: '!!!', cls: 'text-red-600' },
+  Medium: { marks: '!!', cls: 'text-amber-600' },
+  Low: { marks: '!', cls: 'text-sky-600' },
+};
+const openToMove = moveOpen
+  ? groups.filter((g) => g.key === 'planned' || g.key === 'due').flatMap((g) => g.items).filter((t) => !t.done).map((t) => t.id)
+  : [];
 ---
 <section data-tasks aria-label={heading || 'Tasks'} class:list={['mt-8', empty && 'hidden']}>
-  {heading && <h2 class="eyebrow mb-3">{heading}</h2>}
+  {(heading || openToMove.length > 0) && (
+    <div class="mb-3 flex items-center justify-between gap-2">
+      {heading && <h2 class="eyebrow">{heading}</h2>}
+      {openToMove.length > 0 && moveOpen && (
+        <form method="post" action="/api/tasks/reschedule" class="flex items-center gap-1 text-xs">
+          {openToMove.map((id) => <input type="hidden" name="ids" value={id} />)}
+          <input type="hidden" name="ws" value={moveOpen.ws} />
+          <input type="hidden" name="back" value={moveOpen.back} />
+          <span class="text-muted">Move open to</span>
+          <button name="date" value={addDays(today, 1)} class="rounded-md px-1.5 py-0.5 text-muted hover:bg-hover hover:text-ink">tomorrow</button>
+          <button name="date" value={addDays(today, ((8 - new Date(`${today}T00:00:00Z`).getUTCDay()) % 7) || 7)} class="rounded-md px-1.5 py-0.5 text-muted hover:bg-hover hover:text-ink">Monday</button>
+        </form>
+      )}
+    </div>
+  )}
   <div class="space-y-4">
     {groups.map((g) => (
       <div data-group={g.key} class:list={[g.items.length === 0 && 'hidden']}>
@@ -35,20 +75,36 @@ const empty = groups.every((g) => g.items.length === 0) && !always;
         <ul data-task-list={g.key} class="divide-y divide-line overflow-hidden rounded-xl border border-line bg-card">
           {g.items.map((t) => {
             const late = !t.done && !!t.deadline && t.deadline < today;
+            const prio = t.priority ? PRIO[t.priority] : null;
+            const ctx = relationIds(safeParse(t.context)).map((id) => contexts[id]).filter(Boolean);
             return (
-              <li class="flex items-center gap-3 px-3.5 py-2.5" data-task={t.id} data-done={t.done ? 'true' : 'false'}>
+              <li class="flex items-center gap-3 px-3.5 py-2.5" data-task={t.id} data-done={t.done ? 'true' : 'false'} data-repeat={t.repeat ?? undefined}>
                 <button type="button" role="checkbox" aria-checked={t.done ? 'true' : 'false'} aria-label={`Done: ${t.title}`} data-toggle
                   class="task-box flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-ink/30 text-primary-ink transition aria-checked:border-primary aria-checked:bg-primary">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="check"><path d="M20 6 9 17l-5-5" /></svg>
                 </button>
-                <a href={`/o/${t.id}`} class="min-w-0 flex-1 truncate text-[15px] hover:underline" data-title>{t.title || 'Untitled'}</a>
+                <span class="min-w-0 flex-1">
+                  <span class="flex items-center gap-1.5">
+                    {prio && <span class:list={['shrink-0 text-xs font-bold', prio.cls]} title={`${t.priority} priority`}>{prio.marks}</span>}
+                    <a href={`/o/${t.id}`} class="truncate text-[15px] hover:underline" data-title>{t.title || 'Untitled'}</a>
+                    {t.repeat && <span class="shrink-0 text-xs text-muted" title={`Repeats ${t.repeat.toLowerCase()}`} aria-label={`Repeats ${t.repeat.toLowerCase()}`}>↻</span>}
+                  </span>
+                  {ctx.length > 0 && (
+                    <span class="mt-0.5 flex flex-wrap gap-x-2 text-xs text-muted">
+                      {ctx.map((c) => <a href={`/o/${c!.id}`} class="hover:text-ink hover:underline">{c!.title || 'Untitled'}</a>)}
+                    </span>
+                  )}
+                </span>
+                {t.status && t.status !== 'Not started' && !t.done && (
+                  <span class:list={['shrink-0 rounded-md px-1.5 py-0.5 text-xs', t.status === 'Blocked' ? 'bg-red-500/10 text-red-600' : t.status === 'In progress' ? 'bg-sky-500/10 text-sky-700' : 'bg-panel text-muted']}>{t.status}</span>
+                )}
                 {t.deadline && (
                   <span class:list={['shrink-0 rounded-md px-1.5 py-0.5 text-xs', late ? 'bg-red-500/10 text-red-600' : t.deadline === today && !t.done ? 'bg-amber-500/10 text-amber-700' : 'bg-panel text-muted']}>
                     Due {short(t.deadline)}
                   </span>
                 )}
                 {!t.deadline && t.date && t.date !== today && (
-                  <span class="shrink-0 rounded-md bg-panel px-1.5 py-0.5 text-xs text-muted">{t.date < today && !t.done ? 'From' : 'On'} {short(t.date)}</span>
+                  <span class="shrink-0 rounded-md bg-panel px-1.5 py-0.5 text-xs text-muted" data-date-badge>{t.date < today && !t.done ? 'From' : 'On'} {short(t.date)}</span>
                 )}
               </li>
             );
@@ -67,6 +123,7 @@ const empty = groups.every((g) => g.items.length === 0) && !always;
 
 <script>
   // One listener for all rows, including ones added later by "+ Task".
+  const fmt = (iso: string) => new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
   document.querySelectorAll<HTMLElement>('[data-tasks]').forEach((section) => {
     section.addEventListener('click', async (e) => {
       const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-toggle]');
@@ -83,7 +140,20 @@ const empty = groups.every((g) => g.items.length === 0) && !always;
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ value: next }),
       });
-      if (!res.ok) set(!next);
+      if (!res.ok) return set(!next);
+      const r = (await res.json()) as { done: boolean; date: string | null };
+      // A recurring task stays open and moves on: show where it went.
+      if (next && !r.done && r.date) {
+        setTimeout(() => set(false), 350);
+        let badge = row.querySelector<HTMLElement>('[data-date-badge]');
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.dataset.dateBadge = '';
+          badge.className = 'shrink-0 rounded-md bg-panel px-1.5 py-0.5 text-xs text-muted';
+          row.appendChild(badge);
+        }
+        badge.textContent = `Next ${fmt(r.date)}`;
+      }
     });
   });
 </script>

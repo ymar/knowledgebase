@@ -284,12 +284,12 @@ export default function Editor(props: {
    * planned for this day on a daily note, done if it was a ticked checklist item) and the
    * line is replaced by a link to it, so the task shows in the day's task list.
    */
-  const turnIntoTask = useCallback(async () => {
+  const turnIntoTask = useCallback(async (titleOverride?: string) => {
     if (!props.taskTypeId) return;
     const block = editor.getTextCursorPosition().block;
-    const text = (Array.isArray(block.content) ? block.content : [])
+    const text = (titleOverride ?? (Array.isArray(block.content) ? block.content : [])
       .map((c) => ('text' in c ? c.text : ''))
-      .join('')
+      .join(''))
       .trim();
     if (!text) return;
     const s = await api<Summary>('/api/objects', {
@@ -305,6 +305,29 @@ export default function Editor(props: {
       content: [{ type: 'mention', props: { id: s.id, title: s.title, typeId: s.type_id } }, ' '],
     } as never);
   }, [editor, props.taskTypeId, props.workspaceId, props.dayDate]);
+
+  // "() Call the bank !! friday" + Enter: the line becomes a task (like Capacities' "()").
+  // A native capture listener on the wrapper, so ProseMirror never handles that Enter.
+  const shellRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = shellRef.current;
+    if (!el || !props.taskTypeId) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
+      const block = editor.getTextCursorPosition().block;
+      const text = (Array.isArray(block.content) ? block.content : []).map((c) => ('text' in c ? c.text : '')).join('');
+      const m = text.match(/^\(\)\s+(\S.*)$/);
+      if (!m) return;
+      e.preventDefault();
+      e.stopPropagation();
+      void turnIntoTask(m[1]).then(() => {
+        const [next] = editor.insertBlocks([{ type: 'paragraph' }], block, 'after');
+        if (next) editor.setTextCursorPosition(next, 'start');
+      });
+    };
+    el.addEventListener('keydown', onKey, true);
+    return () => el.removeEventListener('keydown', onKey, true);
+  }, [editor, props.taskTypeId, turnIntoTask]);
 
   const taskItems: DefaultReactSuggestionItem[] = props.taskTypeId
     ? [{
@@ -413,7 +436,7 @@ export default function Editor(props: {
   return (
     <EditorEnv.Provider value={{ workspaceId: props.workspaceId }}>
     <RefsContext.Provider value={{ refs, types: typesById }}>
-      <div className="editor-shell">
+      <div className="editor-shell" ref={shellRef}>
         <BlockNoteView editor={editor} onChange={onChange} slashMenu={false} theme={theme}>
           <SuggestionMenuController
             triggerCharacter="/"

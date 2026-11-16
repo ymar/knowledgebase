@@ -104,7 +104,8 @@ export async function saveProperties(
   const d = db();
   const stmts: D1PreparedStatement[] = [
     d
-      .prepare('UPDATE objects SET properties = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL')
+      // Merge, so keys the form doesn't show (a task's done_at / last_done) survive.
+      .prepare('UPDATE objects SET properties = json_patch(properties, ?), updated_at = ? WHERE id = ? AND deleted_at IS NULL')
       .bind(JSON.stringify(values), now, id),
     d.prepare("DELETE FROM links WHERE source_id = ? AND origin = 'property'").bind(id),
     ...unique.map((t) =>

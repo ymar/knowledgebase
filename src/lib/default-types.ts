@@ -22,6 +22,11 @@ export const DEFAULT_TYPES: {
       { key: 'done', label: 'Done', kind: 'checkbox' },
       { key: 'date', label: 'Date', kind: 'date' },
       { key: 'deadline', label: 'Deadline', kind: 'date' },
+      { key: 'status', label: 'Status', kind: 'select', options: ['Not started', 'Next up', 'In progress', 'Blocked'] },
+      { key: 'priority', label: 'Priority', kind: 'select', options: ['Low', 'Medium', 'High'] },
+      { key: 'context', label: 'Context', kind: 'relation', multiple: true },
+      { key: 'repeat', label: 'Repeat', kind: 'select', options: ['Daily', 'Weekdays', 'Weekly', 'Monthly', 'Yearly'] },
+      { key: 'repeat_from', label: 'Repeat from', kind: 'select', options: ['Schedule', 'Completion'] },
     ],
   },
   {

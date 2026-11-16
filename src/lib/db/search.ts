@@ -110,3 +110,18 @@ export async function unlinkedCandidates(
     .all<SearchHit & { content: string }>();
   return results;
 }
+
+/** Live objects in a workspace whose title matches one of `titles` exactly (case-insensitive). For [[links]] from MCP. */
+export async function findByTitles(ws: string, titles: string[]): Promise<Record<string, ObjectSummary>> {
+  const uniq = [...new Set(titles.map((t) => t.trim()).filter(Boolean))].slice(0, 50);
+  if (!uniq.length) return {};
+  const { results } = await db()
+    .prepare(`${SUMMARY} WHERE o.workspace_id = ? AND o.deleted_at IS NULL
+              AND lower(o.title) IN (${uniq.map(() => 'lower(?)').join(',')})
+              ORDER BY o.updated_at DESC`)
+    .bind(ws, ...uniq)
+    .all<ObjectSummary>();
+  const out: Record<string, ObjectSummary> = {};
+  for (const r of results) out[r.title.toLowerCase()] ??= r;
+  return out;
+}
