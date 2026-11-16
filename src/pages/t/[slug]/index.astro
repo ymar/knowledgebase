@@ -1,0 +1,32 @@
+---
+import Base from '../../../layouts/Base.astro';
+import ObjectList from '../../../components/ObjectList.astro';
+import { getTypeBySlug, listObjectsByType } from '../../../lib/db';
+
+const type = await getTypeBySlug(Astro.params.slug!);
+if (!type) return new Response('Not found', { status: 404 });
+const items = await listObjectsByType(type.id);
+const error = Astro.url.searchParams.get('error');
+const isDay = type.id === 'type_day';
+---
+<Base title={type.name} activeTypeId={type.id}>
+  <div class="flex items-baseline gap-3">
+    <span aria-hidden="true" class="text-3xl" style={`color:${type.color}`}>{type.icon}</span>
+    <h1 class="font-serif text-4xl font-semibold">{type.name}</h1>
+  </div>
+
+  <form method="post" action="/api/objects" class="mt-6 flex gap-2">
+    <input type="hidden" name="typeId" value={type.id} />
+    <input
+      name="title" required data-new-object autocomplete="off"
+      type={isDay ? 'date' : 'text'}
+      placeholder={isDay ? '' : `New ${type.name.toLowerCase()}…`}
+      aria-label={`New ${type.name.toLowerCase()}`}
+      class="field flex-1"
+    />
+    <button class="btn-primary" type="submit">Create</button>
+  </form>
+  {error && <p role="alert" class="mt-2 text-sm text-red-600">{error}</p>}
+
+  <div class="mt-8"><ObjectList items={items} /></div>
+</Base>

@@ -1,0 +1,46 @@
+---
+import type { ObjectRow, PropertyDef, ObjectSummary } from '../lib/schema';
+interface Props {
+  object: ObjectRow;
+  defs: PropertyDef[];
+  relationOptions: Record<string, ObjectSummary[]>;
+}
+const { object, defs, relationOptions } = Astro.props;
+const val = (k: string) => object.properties[k] ?? '';
+---
+{defs.length > 0 && (
+  <form method="post" action={`/api/objects/${object.id}`} class="space-y-4 rounded-md border border-line bg-panel p-4">
+    <input type="hidden" name="_action" value="properties" />
+    <h2 class="text-xs font-semibold uppercase tracking-wide text-muted">Properties</h2>
+    <div class="grid gap-4 sm:grid-cols-2">
+      {defs.map((d) => (
+        <label class="block text-sm">
+          <span class="mb-1 block text-muted">{d.label}</span>
+          {d.kind === 'select' ? (
+            <select name={`p_${d.key}`} class="field">
+              <option value="">—</option>
+              {(d.options ?? []).map((o) => <option value={o} selected={val(d.key) === o}>{o}</option>)}
+            </select>
+          ) : d.kind === 'relation' ? (
+            <select name={`p_${d.key}`} class="field">
+              <option value="">—</option>
+              {(relationOptions[d.key] ?? []).filter((o) => o.id !== object.id).map((o) => (
+                <option value={o.id} selected={val(d.key) === o.id}>{o.title || 'Untitled'}</option>
+              ))}
+            </select>
+          ) : (
+            <input
+              name={`p_${d.key}`}
+              class="field"
+              type={d.kind === 'number' ? 'number' : d.kind === 'date' ? 'date' : d.kind === 'url' ? 'url' : 'text'}
+              step={d.kind === 'number' ? 'any' : undefined}
+              inputmode={d.kind === 'number' ? 'decimal' : undefined}
+              value={String(val(d.key))}
+            />
+          )}
+        </label>
+      ))}
+    </div>
+    <button class="btn-primary" type="submit">Save properties</button>
+  </form>
+)}

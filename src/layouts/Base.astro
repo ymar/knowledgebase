@@ -1,0 +1,73 @@
+---
+import '../styles/global.css';
+import { listTypes, countByType } from '../lib/db';
+
+interface Props { title?: string; activeTypeId?: string }
+const { title = 'Cairn', activeTypeId } = Astro.props;
+const [types, counts] = await Promise.all([listTypes(), countByType()]);
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" />
+    <title>{title === 'Cairn' ? 'Cairn' : `${title} · Cairn`}</title>
+  </head>
+  <body class="min-h-screen font-sans antialiased">
+    <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-moss focus:px-3 focus:py-2 focus:text-moss-ink">Skip to content</a>
+
+    <header class="sticky top-0 z-30 flex items-center gap-3 border-b border-line bg-paper px-4 py-3 md:hidden">
+      <button id="menu-btn" class="btn" aria-expanded="false" aria-controls="sidebar" aria-label="Menu">☰</button>
+      <a href="/" class="font-serif text-xl font-semibold">Cairn</a>
+    </header>
+
+    <div class="md:grid md:grid-cols-[16rem_1fr]">
+      <nav id="sidebar" aria-label="Types"
+        class="fixed inset-y-0 left-0 z-40 hidden w-64 overflow-y-auto border-r border-line bg-panel p-4 data-[open=true]:block md:sticky md:top-0 md:block md:h-screen">
+        <a href="/" class="mb-6 hidden items-center gap-2 font-serif text-2xl font-semibold md:flex">
+          <span aria-hidden="true" class="text-moss">▲</span> Cairn
+        </a>
+        <ul class="space-y-0.5">
+          {types.map((t) => (
+            <li>
+              <a href={`/t/${t.slug}`}
+                aria-current={t.id === activeTypeId ? 'page' : undefined}
+                class="flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] hover:bg-line/60 aria-[current=page]:bg-line aria-[current=page]:font-semibold">
+                <span aria-hidden="true" class="w-5 text-center" style={`color:${t.color}`}>{t.icon}</span>
+                <span class="flex-1">{t.name}</span>
+                <span class="text-xs text-muted">{counts[t.id] ?? 0}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+        <p class="mt-8 px-3 text-xs text-muted">Press <kbd class="rounded border border-line px-1">n</kbd> to create</p>
+      </nav>
+
+      <main id="main" class="mx-auto w-full max-w-3xl px-4 py-8 md:px-10 md:py-12">
+        <slot />
+      </main>
+    </div>
+
+    <script is:inline>
+      const nav = document.getElementById('sidebar');
+      const btn = document.getElementById('menu-btn');
+      btn?.addEventListener('click', () => {
+        const open = nav.dataset.open !== 'true';
+        nav.dataset.open = String(open);
+        btn.setAttribute('aria-expanded', String(open));
+      });
+      // "n": focus the new-object field when not typing somewhere.
+      addEventListener('keydown', (e) => {
+        if (e.key !== 'n' || e.metaKey || e.ctrlKey || e.altKey) return;
+        const t = e.target;
+        if (t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+        const f = document.querySelector('[data-new-object]');
+        if (f) { e.preventDefault(); f.focus(); }
+      });
+    </script>
+  </body>
+</html>

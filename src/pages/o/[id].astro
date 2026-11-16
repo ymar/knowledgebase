@@ -1,0 +1,51 @@
+---
+import Base from '../../layouts/Base.astro';
+import PropertyForm from '../../components/PropertyForm.astro';
+import { getObject, getTypeById, getTypeBySlug, listObjectsByType } from '../../lib/db';
+import type { ObjectSummary } from '../../lib/schema';
+import { dayLabel } from '../../lib/format';
+
+const object = await getObject(Astro.params.id!);
+if (!object) return new Response('Not found', { status: 404 });
+const type = (await getTypeById(object.type_id))!;
+
+const relationOptions: Record<string, ObjectSummary[]> = {};
+for (const d of type.properties) {
+  if (d.kind !== 'relation' || !d.target) continue;
+  const target = await getTypeBySlug(d.target);
+  if (target) relationOptions[d.key] = await listObjectsByType(target.id, 200);
+}
+const isDay = type.id === 'type_day';
+---
+<Base title={isDay ? dayLabel(object.title) : object.title || 'Untitled'} activeTypeId={type.id}>
+  <a href={`/t/${type.slug}`} class="text-sm text-muted hover:text-ink">
+    <span aria-hidden="true" style={`color:${type.color}`}>{type.icon}</span> {type.name}
+  </a>
+
+  {isDay ? (
+    <h1 class="mt-2 font-serif text-4xl font-semibold">{dayLabel(object.title)}</h1>
+  ) : (
+    <form method="post" action={`/api/objects/${object.id}`} class="mt-2">
+      <input type="hidden" name="_action" value="rename" />
+      <input
+        name="title" value={object.title} placeholder="Untitled" aria-label="Title" autocomplete="off"
+        class="w-full bg-transparent font-serif text-4xl font-semibold placeholder:text-muted focus:outline-none"
+        onchange="this.form.requestSubmit()"
+      />
+    </form>
+  )}
+
+  <div class="mt-8">
+    <PropertyForm object={object} defs={type.properties} relationOptions={relationOptions} />
+  </div>
+
+  <section class="mt-8 rounded-md border border-dashed border-line p-6 text-center text-sm text-muted">
+    The editor arrives in phase 2.
+  </section>
+
+  <form method="post" action={`/api/objects/${object.id}`} class="mt-12 border-t border-line pt-6"
+    onsubmit="return confirm('Delete this object? It stays in the database but disappears from the app.')">
+    <input type="hidden" name="_action" value="delete" />
+    <button class="btn text-red-700 dark:text-red-400" type="submit">Delete</button>
+  </form>
+</Base>

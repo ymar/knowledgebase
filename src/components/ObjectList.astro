@@ -1,0 +1,21 @@
+---
+import type { ObjectSummary } from '../lib/schema';
+import { dayLabel, shortDate } from '../lib/format';
+interface Props { items: ObjectSummary[]; showType?: boolean }
+const { items, showType = false } = Astro.props;
+---
+{items.length === 0 ? (
+  <p class="rounded-md border border-dashed border-line p-6 text-center text-muted">Nothing here yet.</p>
+) : (
+  <ul class="divide-y divide-line rounded-md border border-line">
+    {items.map((o) => (
+      <li>
+        <a href={`/o/${o.id}`} class="flex items-center gap-3 px-4 py-3.5 hover:bg-panel">
+          {showType && <span aria-hidden="true" style={`color:${o.type_color}`}>{o.type_icon}</span>}
+          <span class="flex-1 truncate">{o.type_id === 'type_day' ? dayLabel(o.title) : (o.title || 'Untitled')}</span>
+          <span class="text-xs text-muted">{shortDate(o.updated_at)}</span>
+        </a>
+      </li>
+    ))}
+  </ul>
+)}
