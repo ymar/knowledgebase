@@ -18,9 +18,10 @@ export async function pickedTags(objectId: string): Promise<ObjectSummary[]> {
   return results;
 }
 
-export async function allTags(): Promise<ObjectSummary[]> {
+export async function allTags(ws: string): Promise<ObjectSummary[]> {
   const { results } = await db()
-    .prepare(`${SUMMARY} WHERE o.type_id = 'type_tag' AND o.deleted_at IS NULL ORDER BY o.title COLLATE NOCASE LIMIT 1000`)
+    .prepare(`${SUMMARY} WHERE o.workspace_id = ? AND o.type_id = 'type_tag' AND o.deleted_at IS NULL ORDER BY o.title COLLATE NOCASE LIMIT 1000`)
+    .bind(ws)
     .all<ObjectSummary>();
   return results;
 }
@@ -30,9 +31,10 @@ export async function addTag(objectId: string, tagId: string): Promise<void> {
   await db()
     .prepare(
       `INSERT OR IGNORE INTO links (source_id, target_id, origin, created_at)
-       SELECT ?, id, 'tag', ? FROM objects WHERE id = ? AND type_id = 'type_tag' AND deleted_at IS NULL`,
+       SELECT ?, id, 'tag', ? FROM objects WHERE id = ? AND type_id = 'type_tag' AND deleted_at IS NULL
+         AND workspace_id = (SELECT workspace_id FROM objects WHERE id = ?)`,
     )
-    .bind(objectId, nowIso(), tagId)
+    .bind(objectId, nowIso(), tagId, objectId)
     .run();
 }
 

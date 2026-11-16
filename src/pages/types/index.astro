@@ -4,7 +4,7 @@ import TypeTile from '../../components/TypeTile.astro';
 import Icon from '../../components/Icon.astro';
 import { countByType, listTypes } from '../../lib/db';
 
-const [types, counts] = await Promise.all([listTypes(), countByType()]);
+const [types, counts] = await Promise.all([listTypes(), countByType(Astro.locals.workspace.id)]);
 const error = Astro.url.searchParams.get('error');
 ---
 <Base title="Types">

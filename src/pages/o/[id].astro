@@ -12,10 +12,19 @@ import {
 } from '../../lib/db';
 import { editorProps } from '../../lib/editor-props';
 import { unlinkedMentions } from '../../lib/unlinked';
+import { setWorkspaceCookie } from '../../lib/workspace';
 import type { ObjectSummary } from '../../lib/schema';
 
 const object = await getObject(Astro.params.id!);
 if (!object) return new Response('Not found', { status: 404 });
+// Opening an object from another workspace switches to it, so the sidebar matches.
+if (object.workspace_id !== Astro.locals.workspace.id) {
+  const target = Astro.locals.workspaces.find((w) => w.id === object.workspace_id);
+  if (target) {
+    setWorkspaceCookie(Astro.cookies, target.id);
+    Astro.locals.workspace = target;
+  }
+}
 if (object.type_id === 'type_day') return Astro.redirect(`/day/${object.title}`, 302);
 
 // Record the view off the critical path.
@@ -30,13 +39,13 @@ const relationOptions: Record<string, ObjectSummary[]> = {};
 for (const d of type.properties) {
   if (d.kind !== 'relation' || !d.target) continue;
   const target = await getTypeBySlug(d.target);
-  if (target) relationOptions[d.key] = await listObjectsByType(target.id, 200);
+  if (target) relationOptions[d.key] = await listObjectsByType(object.workspace_id, target.id, 200);
 }
 const [{ refs, types }, allTypes, tags, tagOptions, unlinked] = await Promise.all([
   editorProps(object.content),
   listTypes(),
   isTag ? Promise.resolve([]) : pickedTags(object.id),
-  allTags(),
+  allTags(object.workspace_id),
   unlinkedMentions(object),
 ]);
 const hasTemplate = type.template.length > 0;
@@ -137,7 +146,7 @@ const notice = Astro.url.searchParams.get('notice');
   )}
 
   <div class="mt-8">
-    <Editor client:only="react" saveUrl={`/api/objects/${object.id}/content`} initialContent={object.content} refs={refs} types={types} selfId={object.id} />
+    <Editor client:only="react" saveUrl={`/api/objects/${object.id}/content`} workspaceId={object.workspace_id} initialContent={object.content} refs={refs} types={types} selfId={object.id} />
   </div>
 
   {!isTag && <Backlinks targetId={object.id} targetTitle={object.title} />}

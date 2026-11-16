@@ -21,8 +21,8 @@ if (Astro.url.searchParams.has('view')) {
 const isDay = type.id === 'type_day';
 const plain = params.show === 'all' && params.filters.length === 0;
 const [items, recent] = await Promise.all([
-  queryObjects({ typeId: type.id, defs, show: params.show, filters: params.filters, sort: params.sort }),
-  plain ? recentlyOpened(4, type.id) : Promise.resolve([]),
+  queryObjects({ ws: Astro.locals.workspace.id, typeId: type.id, defs, show: params.show, filters: params.filters, sort: params.sort }),
+  plain ? recentlyOpened(Astro.locals.workspace.id, 4, type.id) : Promise.resolve([]),
 ]);
 
 const relIds = items.flatMap((o) => defs.filter((d) => d.kind === 'relation').map((d) => o.properties[d.key]))
@@ -51,6 +51,7 @@ const hasFilters = params.filters.length > 0 || params.sort.key !== 'updated';
 
   <form method="post" action="/api/objects" class="mt-8 flex gap-2">
     <input type="hidden" name="typeId" value={type.id} />
+    <input type="hidden" name="workspaceId" value={Astro.locals.workspace.id} />
     <input
       name="title" required data-new-object autocomplete="off"
       type={isDay ? 'date' : 'text'}

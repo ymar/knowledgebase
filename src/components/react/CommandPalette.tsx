@@ -51,7 +51,21 @@ function Snippet({ text }: { text: string }) {
   );
 }
 
-export default function CommandPalette({ types }: { types: PaletteType[] }) {
+interface PaletteWorkspace {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export default function CommandPalette({
+  types,
+  workspaces = [],
+  currentWorkspace,
+}: {
+  types: PaletteType[];
+  workspaces?: PaletteWorkspace[];
+  currentWorkspace?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const [hits, setHits] = useState<Hit[]>([]);
@@ -148,7 +162,23 @@ export default function CommandPalette({ types }: { types: PaletteType[] }) {
         out.push({ key: `t:${t.id}`, group: 'Go to', label: t.name, detail: 'Type', icon: t, run: go(`/t/${t.slug}`) });
       }
     }
-    for (const [label, url, icon] of [['Types', '/types', 'sliders'], ['Trash', '/trash', 'archive'], ['Export', '/export', 'download']]) {
+    for (const w of workspaces) {
+      if (w.id === currentWorkspace) continue;
+      const label = `Switch to ${w.name}`;
+      if (!query || label.toLowerCase().includes(lower) || w.name.toLowerCase().startsWith(lower)) {
+        out.push({
+          key: `w:${w.id}`,
+          group: 'Workspaces',
+          label,
+          icon: { icon: '●', color: w.color },
+          run: async () => {
+            await fetch('/api/workspaces/switch', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: w.id }) });
+            window.location.href = '/';
+          },
+        });
+      }
+    }
+    for (const [label, url, icon] of [['Workspaces', '/workspaces', 'users'], ['Types', '/types', 'sliders'], ['Trash', '/trash', 'archive'], ['Export', '/export', 'download']]) {
       if (query && label.toLowerCase().startsWith(lower)) {
         out.push({ key: `p:${url}`, group: 'Go to', label, detail: 'Page', icon: { icon, color: '#78716c' }, run: go(url) });
       }
@@ -173,7 +203,7 @@ export default function CommandPalette({ types }: { types: PaletteType[] }) {
       }
     }
     return out;
-  }, [hits, recent, q, types]);
+  }, [hits, recent, q, types, workspaces, currentWorkspace]);
 
   const run = useCallback(
     async (a: Action | undefined) => {

@@ -24,3 +24,4 @@ export * from './tags';
 export * from './trash';
 export * from './merge';
 export * from './export';
+export * from './workspaces';

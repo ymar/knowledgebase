@@ -37,7 +37,8 @@ export const POST: APIRoute = async ({ params, request, redirect }) => {
     case 'add-tag': {
       const title = field('tag').replace(/^#/, '');
       if (!title || type.id === TAG_TYPE_ID) break;
-      const tagId = (await findByTitle(TAG_TYPE_ID, title)) ?? (await createObject({ typeId: TAG_TYPE_ID, title }));
+      const ws = object.workspace_id;
+      const tagId = (await findByTitle(ws, TAG_TYPE_ID, title)) ?? (await createObject({ workspaceId: ws, typeId: TAG_TYPE_ID, title }));
       await addTag(id, tagId);
       break;
     }

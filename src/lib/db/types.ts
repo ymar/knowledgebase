@@ -29,10 +29,11 @@ export async function getTypeById(id: string): Promise<TypeRow | null> {
   return r ? hydrate(r) : null;
 }
 
-/** Live (not soft-deleted) object count per type id, for the sidebar. */
-export async function countByType(): Promise<Record<string, number>> {
+/** Live (not soft-deleted) object count per type id in a workspace, for the sidebar. */
+export async function countByType(ws: string): Promise<Record<string, number>> {
   const { results } = await db()
-    .prepare('SELECT type_id, COUNT(*) AS n FROM objects WHERE deleted_at IS NULL GROUP BY type_id')
+    .prepare('SELECT type_id, COUNT(*) AS n FROM objects WHERE workspace_id = ? AND deleted_at IS NULL GROUP BY type_id')
+    .bind(ws)
     .all<{ type_id: string; n: number }>();
   return Object.fromEntries(results.map((r) => [r.type_id, r.n]));
 }
@@ -84,6 +85,7 @@ export async function updateType(
           `INSERT OR IGNORE INTO links (source_id, target_id, origin, created_at)
            SELECT o.id, t.id, 'property', ?
            FROM objects o JOIN objects t ON t.id = json_extract(o.properties, ?) AND t.deleted_at IS NULL
+             AND t.workspace_id = o.workspace_id
            WHERE o.type_id = ? AND o.deleted_at IS NULL AND t.id != o.id`,
         )
         .bind(now, `$."${key}"`, id),

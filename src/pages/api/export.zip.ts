@@ -8,7 +8,8 @@ const fileSafe = (s: string) => s.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, ' ').re
 
 /** One Markdown file per live object, in a folder per type, with properties as front matter. */
 export const GET: APIRoute = async ({ url }) => {
-  const { types, objects, links } = await exportAll();
+  const { workspaces, types, objects, links } = await exportAll();
+  const wsName = new Map(workspaces.map((w) => [w.id as string, fileSafe(String(w.name))]));
   const typeById = new Map(types.map((t) => [t.id as string, t]));
   const live = objects.filter((o) => !o.deleted_at);
   const title = new Map(live.map((o) => [o.id as string, String(o.title || 'Untitled')]));
@@ -25,7 +26,8 @@ export const GET: APIRoute = async ({ url }) => {
   const used = new Set<string>();
   for (const o of live) {
     const type = typeById.get(o.type_id as string);
-    const folder = fileSafe(String(type?.name ?? 'Other'));
+    // <Workspace>/<Type>/<Title>.md
+    const folder = `${wsName.get(o.workspace_id as string) ?? 'Personal'}/${fileSafe(String(type?.name ?? 'Other'))}`;
     let name = fileSafe(String(o.title || 'Untitled'));
     let path = `${folder}/${name}.md`;
     for (let i = 2; used.has(path.toLowerCase()); i++) path = `${folder}/${name} ${i}.md`;
@@ -33,7 +35,7 @@ export const GET: APIRoute = async ({ url }) => {
 
     const defs = (type?.properties ?? []) as PropertyDef[];
     const props = (o.properties ?? {}) as Record<string, unknown>;
-    const fields: Record<string, unknown> = { id: o.id, type: type?.name, title: o.title, created: o.created_at, updated: o.updated_at };
+    const fields: Record<string, unknown> = { id: o.id, workspace: wsName.get(o.workspace_id as string), type: type?.name, title: o.title, created: o.created_at, updated: o.updated_at };
     for (const d of defs) {
       const v = props[d.key];
       fields[d.label] = d.kind === 'relation' && typeof v === 'string' ? (title.get(v) ? `[[${title.get(v)}]]` : null) : v;

@@ -3,16 +3,18 @@ import { createObject, findByTitle, findDay, getSummaries, getTypeById } from '.
 import { isIsoDay } from '../../../lib/format';
 import { json } from '../../../lib/http';
 import { TAG_TYPE_ID } from '../../../lib/schema';
+import { resolveWs } from '../../../lib/workspace';
 
 /**
  * Create an object. Form posts (from list pages) redirect to the new object.
  * JSON posts (from the editor's inline create) return its summary.
  */
-export const POST: APIRoute = async ({ request, redirect }) => {
+export const POST: APIRoute = async ({ request, redirect, locals }) => {
   const isJson = request.headers.get('content-type')?.includes('application/json');
   const input = isJson
-    ? ((await request.json().catch(() => ({}))) as { typeId?: string; title?: string })
+    ? ((await request.json().catch(() => ({}))) as { typeId?: string; title?: string; workspaceId?: string })
     : Object.fromEntries(await request.formData());
+  const ws = resolveWs(locals, input.workspaceId ? String(input.workspaceId) : null);
   const typeId = String(input.typeId ?? '');
   const title = String(input.title ?? '').trim().slice(0, 500);
 
@@ -24,11 +26,11 @@ export const POST: APIRoute = async ({ request, redirect }) => {
     if (!isIsoDay(title)) {
       return isJson ? json({ error: 'Invalid date' }, 400) : redirect(`/t/${type.slug}?error=${encodeURIComponent('Pick a valid date')}`, 303);
     }
-    id = await findDay(title);
+    id = await findDay(ws, title);
   } else if (type.id === TAG_TYPE_ID && title) {
-    id = await findByTitle(TAG_TYPE_ID, title);
+    id = await findByTitle(ws, TAG_TYPE_ID, title);
   }
-  id ??= await createObject({ typeId: type.id, title });
+  id ??= await createObject({ workspaceId: ws, typeId: type.id, title });
 
   if (!isJson) return redirect(`/o/${id}`, 303);
   return json((await getSummaries([id]))[id], 201);

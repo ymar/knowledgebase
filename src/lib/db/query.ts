@@ -22,6 +22,7 @@ function propExpr(def: PropertyDef): [string, unknown[]] {
  * type definition; every value is bound. Unknown keys are ignored.
  */
 export async function queryObjects(opts: {
+  ws: string;
   typeId: string;
   defs: PropertyDef[];
   show?: Show;
@@ -29,8 +30,8 @@ export async function queryObjects(opts: {
   sort?: Sort;
   limit?: number;
 }): Promise<ObjectCard[]> {
-  const where: string[] = ['o.type_id = ?', 'o.deleted_at IS NULL'];
-  const args: unknown[] = [opts.typeId];
+  const where: string[] = ['o.workspace_id = ?', 'o.type_id = ?', 'o.deleted_at IS NULL'];
+  const args: unknown[] = [opts.ws, opts.typeId];
   const defs = new Map(opts.defs.filter((d) => SAFE_KEY.test(d.key)).map((d) => [d.key, d]));
 
   if (opts.show === 'untagged') {
@@ -116,18 +117,19 @@ const SUMMARY = `
          t.name AS type_name, t.slug AS type_slug, t.icon AS type_icon, t.color AS type_color
   FROM objects o JOIN types t ON t.id = o.type_id`;
 
-export async function recentlyOpened(limit = 8, typeId?: string): Promise<ObjectSummary[]> {
+export async function recentlyOpened(ws: string, limit = 8, typeId?: string): Promise<ObjectSummary[]> {
   const typeFilter = typeId ? 'AND o.type_id = ?' : '';
   const { results } = await db()
-    .prepare(`${SUMMARY} WHERE o.opened_at IS NOT NULL AND o.deleted_at IS NULL ${typeFilter} ORDER BY o.opened_at DESC LIMIT ?`)
-    .bind(...(typeId ? [typeId] : []), limit)
+    .prepare(`${SUMMARY} WHERE o.workspace_id = ? AND o.opened_at IS NOT NULL AND o.deleted_at IS NULL ${typeFilter} ORDER BY o.opened_at DESC LIMIT ?`)
+    .bind(ws, ...(typeId ? [typeId] : []), limit)
     .all<ObjectSummary>();
   return results;
 }
 
-export async function listPinned(): Promise<ObjectSummary[]> {
+export async function listPinned(ws: string): Promise<ObjectSummary[]> {
   const { results } = await db()
-    .prepare(`${SUMMARY} WHERE o.pinned_at IS NOT NULL AND o.deleted_at IS NULL ORDER BY o.pinned_at LIMIT 30`)
+    .prepare(`${SUMMARY} WHERE o.workspace_id = ? AND o.pinned_at IS NOT NULL AND o.deleted_at IS NULL ORDER BY o.pinned_at LIMIT 30`)
+    .bind(ws)
     .all<ObjectSummary>();
   return results;
 }

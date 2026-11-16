@@ -15,7 +15,8 @@ const dow = (new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7;
 const monday = addDays(date, -dow);
 const week = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
 
-const dayId = await findDay(date);
+const ws = Astro.locals.workspace.id;
+const dayId = await findDay(ws, date);
 if (dayId) {
   const opened = markOpened(dayId);
   if (Astro.locals.cfContext?.waitUntil) Astro.locals.cfContext.waitUntil(opened);
@@ -23,8 +24,8 @@ if (dayId) {
 }
 const [day, withNotes, activity] = await Promise.all([
   dayId ? getObject(dayId) : null,
-  daysWithNotes(week[0], week[6]),
-  activityOn(date),
+  daysWithNotes(ws, week[0], week[6]),
+  activityOn(ws, date),
 ]);
 // No day object yet: show the Day template. The object is created on first save.
 const initial = day ? day.content : ((await getTypeById('type_day'))?.template ?? []);
@@ -64,7 +65,7 @@ const fmt = (iso: string, opt: Intl.DateTimeFormatOptions) =>
 </nav>
 
 <div class="mt-8">
-  <Editor client:only="react" saveUrl={`/api/days/${date}/content`} initialContent={initial} refs={refs} types={types} selfId={dayId} />
+  <Editor client:only="react" saveUrl={`/api/days/${date}/content?ws=${ws}`} workspaceId={ws} initialContent={initial} refs={refs} types={types} selfId={dayId} />
 </div>
 
 {activity.length > 0 && (

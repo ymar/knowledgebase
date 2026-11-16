@@ -5,7 +5,7 @@ import Icon from '../components/Icon.astro';
 import { listTrash } from '../lib/db';
 import { dayLabel, shortDate } from '../lib/format';
 
-const items = await listTrash();
+const items = await listTrash(Astro.locals.workspace.id);
 const notice = Astro.url.searchParams.get('notice');
 ---
 <Base title="Trash">

@@ -8,7 +8,8 @@ import { dayLabel } from '../lib/format';
 
 interface Props { title?: string; activeTypeId?: string; activeObjectId?: string; home?: boolean }
 const { title = 'Cairn', activeTypeId, activeObjectId, home = false } = Astro.props;
-const [types, counts, pinned] = await Promise.all([listTypes(), countByType(), listPinned()]);
+const ws = Astro.locals.workspace;
+const [types, counts, pinned] = await Promise.all([listTypes(), countByType(ws.id), listPinned(ws.id)]);
 const paletteTypes = types.map((t) => ({ id: t.id, name: t.name, slug: t.slug, icon: t.icon, color: t.color }));
 ---
 <!doctype html>
@@ -34,6 +35,9 @@ const paletteTypes = types.map((t) => ({ id: t.id, name: t.name, slug: t.slug, i
       <a href="/" class="flex items-center gap-2 text-[15px] font-semibold">
         <img src="/favicon.svg" alt="" class="h-6 w-6" /> Cairn
       </a>
+      <span class="flex items-center gap-1.5 rounded-full border border-line px-2 py-0.5 text-xs text-muted">
+        <span class="h-2 w-2 rounded-full" style={`background:${ws.color}`}></span>{ws.name}
+      </span>
       <button data-open-palette class="btn ml-auto px-2.5" aria-label="Search"><Icon name="search" /></button>
     </header>
 
@@ -45,6 +49,29 @@ const paletteTypes = types.map((t) => ({ id: t.id, name: t.name, slug: t.slug, i
         <a href="/" class="mb-5 flex items-center gap-2.5 px-2 text-[15px] font-semibold">
           <img src="/favicon.svg" alt="" class="h-7 w-7" /> Cairn
         </a>
+
+        <details class="relative mb-3" id="ws-menu">
+          <summary class="flex cursor-pointer list-none items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm font-medium hover:bg-hover"
+            aria-label={`Workspace: ${ws.name}. Switch workspace`}>
+            <span class="h-2.5 w-2.5 rounded-full" style={`background:${ws.color}`}></span>
+            <span class="flex-1 truncate">{ws.name}</span>
+            <Icon name="chevron-down" size={14} class="text-muted" />
+          </summary>
+          <div class="absolute inset-x-0 z-50 mt-1 rounded-xl border border-line bg-card p-1.5 shadow-lg">
+            {Astro.locals.workspaces.map((w) => (
+              <form method="post" action="/api/workspaces/switch">
+                <input type="hidden" name="id" value={w.id} />
+                <button type="submit" aria-current={w.id === ws.id ? 'true' : undefined}
+                  class="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-sm hover:bg-hover aria-[current=true]:font-medium">
+                  <span class="h-2.5 w-2.5 rounded-full" style={`background:${w.color}`}></span>
+                  <span class="flex-1">{w.name}</span>
+                  {w.id === ws.id && <span class="text-xs text-muted">✓</span>}
+                </button>
+              </form>
+            ))}
+            <a href="/workspaces" class="mt-1 block rounded-lg border-t border-line px-2.5 py-1.5 pt-2 text-sm text-muted hover:bg-hover hover:text-ink">Manage workspaces</a>
+          </div>
+        </details>
 
         <button data-open-palette type="button"
           class="mb-3 flex w-full items-center gap-2.5 rounded-lg border border-line bg-card px-2.5 py-1.5 text-left text-sm text-muted shadow-xs hover:text-ink">
@@ -111,7 +138,7 @@ const paletteTypes = types.map((t) => ({ id: t.id, name: t.name, slug: t.slug, i
       </main>
     </div>
 
-    <CommandPalette client:load types={paletteTypes} />
+    <CommandPalette client:load types={paletteTypes} workspaces={Astro.locals.workspaces.map((w) => ({ id: w.id, name: w.name, color: w.color }))} currentWorkspace={ws.id} />
 
     <script is:inline>
       // Show Ctrl instead of ⌘ outside Apple platforms.
@@ -126,8 +153,10 @@ const paletteTypes = types.map((t) => ({ id: t.id, name: t.name, slug: t.slug, i
       };
       btn?.addEventListener('click', () => setOpen(nav.dataset.open !== 'true'));
       scrim.addEventListener('click', () => setOpen(false));
+      const wsMenu = document.getElementById('ws-menu');
+      addEventListener('click', (e) => { if (wsMenu && !wsMenu.contains(e.target)) wsMenu.open = false; });
       addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') return setOpen(false);
+        if (e.key === 'Escape') { if (wsMenu) wsMenu.open = false; return setOpen(false); }
         if (e.key !== 'n' || e.metaKey || e.ctrlKey || e.altKey) return;
         const t = e.target;
         if (t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;

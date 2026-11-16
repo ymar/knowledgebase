@@ -154,7 +154,10 @@ export default function Editor(props: {
   types: TypeInfo[];
   /** Object id of the document being edited, if it exists yet. Excluded from mention results. */
   selfId?: string | null;
+  /** Workspace of the document. Search, inline create and date links stay inside it. */
+  workspaceId: string;
 }) {
+  const wsq = `ws=${encodeURIComponent(props.workspaceId)}`;
   const typesById = useMemo(() => Object.fromEntries(props.types.map((t) => [t.id, t])), [props.types]);
   const [refs, setRefs] = useState(props.refs);
 
@@ -261,13 +264,13 @@ export default function Editor(props: {
   );
 
   const create = useCallback(
-    async (typeId: string, title: string) => insertMention(await api<Summary>('/api/objects', { method: 'POST', body: JSON.stringify({ typeId, title }) })),
-    [insertMention],
+    async (typeId: string, title: string) => insertMention(await api<Summary>('/api/objects', { method: 'POST', body: JSON.stringify({ typeId, title, workspaceId: props.workspaceId }) })),
+    [insertMention, props.workspaceId],
   );
 
   const getObjectItems = useCallback(
     async (query: string): Promise<DefaultReactSuggestionItem[]> => {
-      const found = await api<Summary[]>(`/api/search?q=${encodeURIComponent(query)}`).catch(() => []);
+      const found = await api<Summary[]>(`/api/search?${wsq}&q=${encodeURIComponent(query)}`).catch(() => []);
       const items = found.filter((s) => s.id !== props.selfId && s.type_id !== DAY).map((s) => toItem(s, 'Objects'));
 
       const day = typesById[DAY];
@@ -277,7 +280,7 @@ export default function Editor(props: {
           subtext: label.startsWith(iso.slice(0, 4)) ? 'Day' : dayLabel(iso),
           group: 'Days',
           icon: day ? <TypeTile icon={day.icon} color={day.color} size={22} /> : undefined,
-          onItemClick: () => void api<Summary>(`/api/days/${iso}`, { method: 'POST' }).then(insertMention),
+          onItemClick: () => void api<Summary>(`/api/days/${iso}?${wsq}`, { method: 'POST' }).then(insertMention),
         });
       }
 
@@ -295,12 +298,12 @@ export default function Editor(props: {
       }
       return items;
     },
-    [props.selfId, props.types, typesById, toItem, insertMention, create],
+    [props.selfId, props.types, typesById, toItem, insertMention, create, wsq],
   );
 
   const getTagItems = useCallback(
     async (query: string): Promise<DefaultReactSuggestionItem[]> => {
-      const found = await api<Summary[]>(`/api/search?type=${TAG}&q=${encodeURIComponent(query)}`).catch(() => []);
+      const found = await api<Summary[]>(`/api/search?${wsq}&type=${TAG}&q=${encodeURIComponent(query)}`).catch(() => []);
       const items: DefaultReactSuggestionItem[] = found
         .filter((s) => s.id !== props.selfId)
         .map((s) => ({ ...toItem(s, 'Tags'), subtext: undefined }));
@@ -316,7 +319,7 @@ export default function Editor(props: {
       }
       return items;
     },
-    [props.selfId, typesById, toItem, create],
+    [props.selfId, typesById, toItem, create, wsq],
   );
 
   return (

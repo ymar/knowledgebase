@@ -4,7 +4,8 @@ import { db, nowIso, parseJson } from './index';
 
 /**
  * Statements that rewrite `sourceId`'s content links to exactly `targetIds`.
- * Targets that don't exist or are soft-deleted are skipped by the SELECT.
+ * Targets that don't exist, are soft-deleted or live in another workspace are
+ * skipped by the SELECT, so links never cross workspaces.
  */
 export function contentLinkStatements(sourceId: string, targetIds: string[], now: string): D1PreparedStatement[] {
   const d = db();
@@ -16,9 +17,10 @@ export function contentLinkStatements(sourceId: string, targetIds: string[], now
         d
           .prepare(
             `INSERT OR IGNORE INTO links (source_id, target_id, origin, created_at)
-             SELECT ?, id, 'content', ? FROM objects WHERE id = ? AND deleted_at IS NULL`,
+             SELECT ?, id, 'content', ? FROM objects WHERE id = ? AND deleted_at IS NULL
+               AND workspace_id = (SELECT workspace_id FROM objects WHERE id = ?)`,
           )
-          .bind(sourceId, now, t),
+          .bind(sourceId, now, t, sourceId),
       ),
   ];
 }

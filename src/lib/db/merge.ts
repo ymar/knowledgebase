@@ -10,8 +10,11 @@ import { db, nowIso, parseJson } from './index';
 export async function mergeTags(fromId: string, intoId: string): Promise<number> {
   const d = db();
   const into = await d
-    .prepare("SELECT id, title, type_id FROM objects WHERE id = ? AND type_id = 'type_tag' AND deleted_at IS NULL")
-    .bind(intoId)
+    .prepare(
+      `SELECT id, title, type_id FROM objects WHERE id = ? AND type_id = 'type_tag' AND deleted_at IS NULL
+         AND workspace_id = (SELECT workspace_id FROM objects WHERE id = ?)`,
+    )
+    .bind(intoId, fromId)
     .first<{ id: string; title: string; type_id: string }>();
   if (!into || fromId === intoId) throw new Error('Pick another tag');
 

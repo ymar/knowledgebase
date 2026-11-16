@@ -28,18 +28,18 @@ export async function getObject(id: string): Promise<ObjectRow | null> {
   return r ? hydrate(r) : null;
 }
 
-export async function listObjectsByType(typeId: string, limit = 500): Promise<ObjectSummary[]> {
+export async function listObjectsByType(ws: string, typeId: string, limit = 500): Promise<ObjectSummary[]> {
   const { results } = await db()
-    .prepare(`${SUMMARY_SELECT} WHERE o.type_id = ? AND o.deleted_at IS NULL ORDER BY o.updated_at DESC LIMIT ?`)
-    .bind(typeId, limit)
+    .prepare(`${SUMMARY_SELECT} WHERE o.workspace_id = ? AND o.type_id = ? AND o.deleted_at IS NULL ORDER BY o.updated_at DESC LIMIT ?`)
+    .bind(ws, typeId, limit)
     .all<ObjectSummary>();
   return results;
 }
 
-export async function listRecent(limit = 20): Promise<ObjectSummary[]> {
+export async function listRecent(ws: string, limit = 20): Promise<ObjectSummary[]> {
   const { results } = await db()
-    .prepare(`${SUMMARY_SELECT} WHERE o.deleted_at IS NULL ORDER BY o.updated_at DESC LIMIT ?`)
-    .bind(limit)
+    .prepare(`${SUMMARY_SELECT} WHERE o.workspace_id = ? AND o.deleted_at IS NULL ORDER BY o.updated_at DESC LIMIT ?`)
+    .bind(ws, limit)
     .all<ObjectSummary>();
   return results;
 }
@@ -55,6 +55,7 @@ export async function getSummaries(ids: string[]): Promise<Record<string, Object
 }
 
 export async function createObject(input: {
+  workspaceId: string;
   typeId: string;
   title: string;
 }): Promise<string> {
@@ -66,10 +67,10 @@ export async function createObject(input: {
   await d.batch([
     d
       .prepare(
-        `INSERT INTO objects (id, type_id, title, properties, content, text_content, created_at, updated_at)
-         VALUES (?, ?, ?, '{}', ?, ?, ?, ?)`,
+        `INSERT INTO objects (id, workspace_id, type_id, title, properties, content, text_content, created_at, updated_at)
+         VALUES (?, ?, ?, ?, '{}', ?, ?, ?, ?)`,
       )
-      .bind(id, input.typeId, input.title.trim(), JSON.stringify(content), extractText(content), now, now),
+      .bind(id, input.workspaceId, input.typeId, input.title.trim(), JSON.stringify(content), extractText(content), now, now),
     ...contentLinkStatements(id, extractMentionIds(content), now),
   ]);
   return id;
@@ -108,9 +109,10 @@ export async function saveProperties(
       d
         .prepare(
           `INSERT OR IGNORE INTO links (source_id, target_id, origin, created_at)
-           SELECT ?, id, 'property', ? FROM objects WHERE id = ? AND deleted_at IS NULL`,
+           SELECT ?, id, 'property', ? FROM objects WHERE id = ? AND deleted_at IS NULL
+             AND workspace_id = (SELECT workspace_id FROM objects WHERE id = ?)`,
         )
-        .bind(id, now, t),
+        .bind(id, now, t, id),
     ),
   ];
   await d.batch(stmts);
@@ -124,10 +126,10 @@ export async function softDeleteObject(id: string): Promise<void> {
     .run();
 }
 
-export async function findDay(date: string): Promise<string | null> {
+export async function findDay(ws: string, date: string): Promise<string | null> {
   const r = await db()
-    .prepare("SELECT id FROM objects WHERE type_id = 'type_day' AND title = ? AND deleted_at IS NULL")
-    .bind(date)
+    .prepare("SELECT id FROM objects WHERE workspace_id = ? AND type_id = 'type_day' AND title = ? AND deleted_at IS NULL")
+    .bind(ws, date)
     .first<{ id: string }>();
   return r?.id ?? null;
 }
@@ -177,9 +179,10 @@ export async function changeType(
       d
         .prepare(
           `INSERT OR IGNORE INTO links (source_id, target_id, origin, created_at)
-           SELECT ?, id, 'property', ? FROM objects WHERE id = ? AND deleted_at IS NULL`,
+           SELECT ?, id, 'property', ? FROM objects WHERE id = ? AND deleted_at IS NULL
+             AND workspace_id = (SELECT workspace_id FROM objects WHERE id = ?)`,
         )
-        .bind(id, now, t),
+        .bind(id, now, t, id),
     ),
   ]);
   return dropped;

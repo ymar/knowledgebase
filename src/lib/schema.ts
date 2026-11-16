@@ -35,6 +35,7 @@ export interface ObjectRow {
   updated_at: string;
   deleted_at: string | null;
   opened_at: string | null;
+  workspace_id: string;
   pinned_at: string | null;
 }
 

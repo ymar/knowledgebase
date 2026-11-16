@@ -20,7 +20,7 @@ Do not copy Capacities assets, icons, logo or wording.
 - Tailwind 4 via `@tailwindcss/vite`. React islands only for the editor and command palette.
 - BlockNote 0.57 (`@blocknote/core`, `/react`, `/mantine`), content stored as JSON.
 - Plain SQL migrations in `migrations/`, applied with `wrangler d1 migrations apply`. No ORM.
-- No auth code. Cloudflare Access sits in front.
+- No auth code. Cloudflare Access sits in front (enabled on `knowledgebase.ymar.workers.dev`; email one-time PIN).
 - `src/fetch.ts` is a reserved filename in Astro 7. Don't use it.
 
 ## Editor notes
@@ -47,6 +47,12 @@ Do not copy Capacities assets, icons, logo or wording.
 - Trash (`/trash`): restore, or "Delete forever", the only hard delete. Merging tags rewrites every document
   that mentions the old tag, moves picker links and trashes the old tag, in one batch.
 - Export: `/api/export.json` (all rows, trash included, plus R2 keys) and `/api/export.zip` (Markdown per object).
+- Workspaces (migration 0006): `objects.workspace_id`, default `ws_personal`; seeded Personal and Work.
+  Types are shared. Every list, search, count, pin, recent, trash and day query takes a workspace id.
+  Link inserts only match targets in the source's workspace, so links never cross. The current workspace
+  is the `ws` cookie, resolved into `Astro.locals.workspace` by `src/middleware.ts`. The editor sends its
+  document's workspace explicitly (`?ws=` / `workspaceId`), so a switch in another tab can't misroute a save.
+  Opening an object from another workspace switches to it. Moving objects between workspaces is not built.
 - `astro dev` runs as a managed background process: stop it with `npx astro dev stop` before `db:reset`.
 
 ## Code rules
@@ -55,7 +61,7 @@ Do not copy Capacities assets, icons, logo or wording.
 - Prepared statements always. `db().batch()` for any multi-statement write.
 - IDs are ULIDs from `src/lib/ulid.ts`. Seed type ids are fixed strings (`type_note`, `type_day`, `type_person`,
   `type_project`, `type_book`, `type_tag`).
-- Soft delete only (`deleted_at`). Every read filters `deleted_at IS NULL`.
+- Soft delete only (`deleted_at`). Every read filters `deleted_at IS NULL`, and every list/search filters `workspace_id`.
 - `links.origin` is `content` | `tag` | `property`. Autosave rewrites only `origin = 'content'` rows.
 - Server-render everything else. Forms post to `src/pages/api/*` and redirect 303.
 - Keyboard-first, works at 390px wide.
