@@ -6,6 +6,8 @@ import Icon from '../../../components/Icon.astro';
 import { getSummaries, getTypeBySlug, queryObjects, recentlyOpened } from '../../../lib/db';
 import { OPS, SORTS, readListParams, withParams } from '../../../lib/list-params';
 import { setWorkspaceCookie } from '../../../lib/workspace';
+import DatePicker from '../../../components/DatePicker.astro';
+import { requestTimeZone, todayIn } from '../../../lib/format';
 import { dayLabel } from '../../../lib/format';
 
 const type = await getTypeBySlug(Astro.params.slug!);
@@ -27,6 +29,7 @@ if (Astro.url.searchParams.has('view')) {
 }
 
 const isDay = type.id === 'type_day';
+const today = todayIn(requestTimeZone(Astro.request));
 const plain = params.show === 'all' && params.filters.length === 0;
 const [items, recent] = await Promise.all([
   queryObjects({ ws: Astro.locals.workspace.id, typeId: type.id, defs, show: params.show, filters: params.filters, sort: params.sort }),
@@ -65,18 +68,25 @@ const hasFilters = params.filters.length > 0 || params.sort.key !== 'updated';
     </form>
   )}
 
+  {isDay ? (
+    <div class="mt-8 flex flex-wrap items-center gap-2">
+      <DatePicker mode="navigate" value={today} today={today} label="Open the note for a date" class="min-w-[14rem] flex-1 sm:flex-none" />
+      <a href="/" class="btn-primary"><Icon name="calendar" size={16} /> Open today</a>
+    </div>
+  ) : (
   <form method="post" action="/api/objects" class:list={['mt-8 flex gap-2', !type.enabled && 'hidden']}>
     <input type="hidden" name="typeId" value={type.id} />
     <input type="hidden" name="workspaceId" value={Astro.locals.workspace.id} />
     <input
       name="title" required data-new-object autocomplete="off"
-      type={isDay ? 'date' : 'text'}
-      placeholder={isDay ? '' : `New ${type.name.toLowerCase()}…`}
+      type="text"
+      placeholder={`New ${type.name.toLowerCase()}…`}
       aria-label={`New ${type.name.toLowerCase()}`}
       class="field flex-1"
     />
     <button class="btn-primary" type="submit"><Icon name="plus" size={16} /> <span class="hidden sm:inline">Create</span></button>
   </form>
+  )}
   {error && <p role="alert" class="mt-2 text-sm text-red-600">{error}</p>}
 
   {recent.length > 0 && (
@@ -155,7 +165,7 @@ const hasFilters = params.filters.length > 0 || params.sort.key !== 'updated';
 
   <div class="mt-4">
     <ObjectCards items={items} defs={defs} view={params.view} relTitles={relTitles}
-      empty={plain ? `No ${type.name.toLowerCase()} objects yet. Press n to create one.` : 'Nothing matches.'} />
+      empty={plain ? (isDay ? 'No daily notes yet. Pick a date above, or open today.' : `No ${type.name.toLowerCase()} objects yet. Press n to create one.`) : 'Nothing matches.'} />
   </div>
 
   <script is:inline>

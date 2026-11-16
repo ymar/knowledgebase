@@ -49,7 +49,7 @@ export const GET: APIRoute = async ({ url }) => {
   return new Response(zip, {
     headers: {
       'content-type': 'application/zip',
-      'content-disposition': `attachment; filename="cairn-markdown-${stamp}.zip"`,
+      'content-disposition': `attachment; filename="kb-markdown-${stamp}.zip"`,
       'cache-control': 'no-store',
     },
   });

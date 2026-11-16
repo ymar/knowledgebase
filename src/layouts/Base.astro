@@ -7,7 +7,7 @@ import { listTypes, countByType, listPinned } from '../lib/db';
 import { dayLabel } from '../lib/format';
 
 interface Props { title?: string; activeTypeId?: string; activeObjectId?: string; home?: boolean }
-const { title = 'Cairn', activeTypeId, activeObjectId, home = false } = Astro.props;
+const { title = 'KB', activeTypeId, activeObjectId, home = false } = Astro.props;
 const ws = Astro.locals.workspace;
 // 'light' | 'dark' forces a theme; anything else follows the system. A cookie, so the server renders it without a flash.
 const themeCookie = Astro.cookies.get('theme')?.value;
@@ -32,7 +32,7 @@ const paletteTypes = types.map((t) => ({ id: t.id, name: t.name, slug: t.slug, i
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
-    <title>{title === 'Cairn' ? 'Cairn' : `${title} · Cairn`}</title>
+    <title>{title === 'KB' ? 'KB' : `${title} · KB`}</title>
   </head>
   <body class="min-h-screen antialiased">
     <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-lg focus:bg-primary focus:px-3 focus:py-2 focus:text-primary-ink">Skip to content</a>

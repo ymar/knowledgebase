@@ -63,6 +63,10 @@ Do not copy Capacities assets, icons, logo or wording.
   Opening a type page from another workspace switches to it.
 - Type order is per workspace (migration 0008): `workspaces.type_order` is a JSON array of type ids, read
   with `json_each` in `listTypes`; unlisted types follow by `sort_order`. Day and Tag are ordered per workspace too.
+- Dates are picked with `src/components/DatePicker.astro` (own calendar, Monday-first, keyboard: arrows,
+  PageUp/Down, Home/End, Enter, Esc). `navigate` mode opens a day note; `field` mode fills a hidden input.
+  Native date inputs remain only in the type-page filter row. Theme: `theme` cookie -> `<html data-theme>`.
+- App name in the UI and tab title is "KB".
 - `astro dev` runs as a managed background process: stop it with `npx astro dev stop` before `db:reset`.
 
 ## Code rules

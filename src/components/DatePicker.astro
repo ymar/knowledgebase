@@ -1,0 +1,186 @@
+---
+/**
+ * Our own date picker (native date inputs can't be styled).
+ *
+ * mode "navigate": picking a date goes to that day's note (`/` for today).
+ * mode "field":    picking a date fills a hidden input named `name` (for forms); can be cleared.
+ *
+ * Keyboard: Enter/Space opens; arrows move by day/week; PageUp/PageDown by month;
+ * Home/End to week start/end; Enter picks; Esc closes. Weeks start on Monday.
+ */
+import Icon from './Icon.astro';
+import { dayLabel } from '../lib/format';
+
+interface Props {
+  mode: 'navigate' | 'field';
+  /** YYYY-MM-DD or '' */
+  value: string;
+  /** Today in the user's time zone (YYYY-MM-DD). In field mode the browser's date is used if omitted. */
+  today?: string;
+  name?: string;
+  id?: string;
+  label: string;
+  align?: 'left' | 'right';
+  class?: string;
+}
+const { mode, value, today, name, id, label, align = 'left', class: cls = '' } = Astro.props;
+const short = (iso: string) =>
+  iso ? new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`)) : '';
+---
+<div class={`dp relative inline-block ${cls}`} data-dp data-mode={mode} data-value={value} data-today={today ?? ''}>
+  <button type="button" id={id} data-dp-trigger aria-haspopup="dialog" aria-expanded="false"
+    aria-label={`${label}: ${value ? dayLabel(value) : 'empty'}`}
+    class="field inline-flex w-full items-center gap-2 text-left">
+    <Icon name="calendar" size={16} class="shrink-0 text-muted" />
+    <span data-dp-label class:list={['flex-1 truncate', !value && 'text-muted']}>{value ? short(value) : 'Empty'}</span>
+  </button>
+  {mode === 'field' && <input type="hidden" name={name} value={value} data-dp-input />}
+  <div data-dp-pop hidden role="dialog" aria-label={label}
+    class:list={['absolute z-40 mt-1.5 w-[17.5rem] rounded-xl border border-line bg-card p-3 shadow-xl', align === 'right' ? 'right-0' : 'left-0']}>
+    <div class="mb-2 flex items-center justify-between">
+      <button type="button" data-dp-prev class="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-hover hover:text-ink" aria-label="Previous month"><Icon name="chevron-left" size={16} /></button>
+      <span data-dp-month class="text-sm font-semibold" aria-live="polite"></span>
+      <button type="button" data-dp-next class="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-hover hover:text-ink" aria-label="Next month"><Icon name="chevron-right" size={16} /></button>
+    </div>
+    <div class="grid grid-cols-7 text-center text-[11px] font-medium uppercase text-muted" aria-hidden="true">
+      {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map((d) => <span class="py-1">{d}</span>)}
+    </div>
+    <div data-dp-grid role="grid" class="grid grid-cols-7 gap-0.5"></div>
+    <div class="mt-2 flex items-center justify-between border-t border-line pt-2">
+      <button type="button" data-dp-today class="rounded-lg px-2 py-1 text-sm font-medium hover:bg-hover">Today</button>
+      {mode === 'field' && <button type="button" data-dp-clear class="rounded-lg px-2 py-1 text-sm text-muted hover:bg-hover hover:text-ink">Clear</button>}
+    </div>
+  </div>
+</div>
+
+<script>
+  const iso = (d: Date) =>
+    `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+  const parse = (s: string) => new Date(`${s}T00:00:00Z`);
+  const add = (s: string, days: number) => {
+    const d = parse(s);
+    d.setUTCDate(d.getUTCDate() + days);
+    return iso(d);
+  };
+  const addMonths = (s: string, n: number) => {
+    const d = parse(s);
+    const day = d.getUTCDate();
+    d.setUTCDate(1);
+    d.setUTCMonth(d.getUTCMonth() + n);
+    const last = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+    d.setUTCDate(Math.min(day, last));
+    return iso(d);
+  };
+  const localToday = () => {
+    const n = new Date();
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
+  };
+  const fmt = (s: string, o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat('en-GB', { ...o, timeZone: 'UTC' }).format(parse(s));
+
+  document.querySelectorAll<HTMLElement>('[data-dp]').forEach((root) => {
+    const trigger = root.querySelector<HTMLButtonElement>('[data-dp-trigger]')!;
+    const pop = root.querySelector<HTMLElement>('[data-dp-pop]')!;
+    const grid = root.querySelector<HTMLElement>('[data-dp-grid]')!;
+    const monthEl = root.querySelector<HTMLElement>('[data-dp-month]')!;
+    const labelEl = root.querySelector<HTMLElement>('[data-dp-label]')!;
+    const input = root.querySelector<HTMLInputElement>('[data-dp-input]');
+    const mode = root.dataset.mode;
+    const today = root.dataset.today || localToday();
+    let value = root.dataset.value ?? '';
+    let focus = value || today;
+
+    const render = () => {
+      const first = parse(focus);
+      first.setUTCDate(1);
+      const start = add(iso(first), -((first.getUTCDay() + 6) % 7));
+      monthEl.textContent = fmt(focus, { month: 'long', year: 'numeric' });
+      const month = focus.slice(0, 7);
+      grid.innerHTML = '';
+      for (let i = 0; i < 42; i++) {
+        const d = add(start, i);
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.dataset.date = d;
+        b.textContent = String(parse(d).getUTCDate());
+        b.tabIndex = d === focus ? 0 : -1;
+        b.setAttribute('role', 'gridcell');
+        b.setAttribute('aria-label', fmt(d, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }));
+        if (d === value) b.setAttribute('aria-selected', 'true');
+        if (d === today) b.setAttribute('aria-current', 'date');
+        b.className = [
+          'h-9 rounded-lg text-sm tabular-nums transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ink',
+          d.slice(0, 7) === month ? 'text-ink' : 'text-muted/60',
+          d === value ? 'bg-primary text-primary-ink font-semibold' : 'hover:bg-hover',
+          d === today && d !== value ? 'font-semibold ring-1 ring-inset ring-line' : '',
+        ].join(' ');
+        grid.appendChild(b);
+      }
+    };
+    const focusCell = () => grid.querySelector<HTMLButtonElement>(`[data-date="${focus}"]`)?.focus();
+    const open = () => {
+      focus = value || today;
+      render();
+      pop.hidden = false;
+      trigger.setAttribute('aria-expanded', 'true');
+      focusCell();
+    };
+    const close = (refocus = true) => {
+      if (pop.hidden) return;
+      pop.hidden = true;
+      trigger.setAttribute('aria-expanded', 'false');
+      if (refocus) trigger.focus();
+    };
+    const pick = (d: string) => {
+      if (mode === 'navigate') {
+        window.location.href = d === root.dataset.today ? '/' : `/day/${d}`;
+        return;
+      }
+      value = d;
+      if (input) {
+        input.value = d;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      labelEl.textContent = d ? fmt(d, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : 'Empty';
+      labelEl.classList.toggle('text-muted', !d);
+      close();
+    };
+
+    trigger.addEventListener('click', () => (pop.hidden ? open() : close()));
+    root.querySelector('[data-dp-prev]')!.addEventListener('click', () => { focus = addMonths(focus, -1); render(); });
+    root.querySelector('[data-dp-next]')!.addEventListener('click', () => { focus = addMonths(focus, 1); render(); });
+    root.querySelector('[data-dp-today]')!.addEventListener('click', () => pick(today));
+    root.querySelector('[data-dp-clear]')?.addEventListener('click', () => pick(''));
+    grid.addEventListener('click', (e) => {
+      const d = (e.target as HTMLElement).closest<HTMLElement>('[data-date]')?.dataset.date;
+      if (d) pick(d);
+    });
+    grid.addEventListener('keydown', (e) => {
+      const moves: Record<string, () => string> = {
+        ArrowLeft: () => add(focus, -1),
+        ArrowRight: () => add(focus, 1),
+        ArrowUp: () => add(focus, -7),
+        ArrowDown: () => add(focus, 7),
+        PageUp: () => addMonths(focus, -1),
+        PageDown: () => addMonths(focus, 1),
+        Home: () => add(focus, -((parse(focus).getUTCDay() + 6) % 7)),
+        End: () => add(focus, 6 - ((parse(focus).getUTCDay() + 6) % 7)),
+      };
+      if (moves[e.key]) {
+        e.preventDefault();
+        focus = moves[e.key]();
+        render();
+        focusCell();
+      }
+    });
+    pop.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        close();
+      }
+    });
+    document.addEventListener('click', (e) => {
+      if (!root.contains(e.target as Node)) close(false);
+    });
+  });
+</script>

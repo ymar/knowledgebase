@@ -1,5 +1,6 @@
 ---
 import type { ObjectRow, PropertyDef, ObjectSummary } from '../lib/schema';
+import DatePicker from './DatePicker.astro';
 interface Props {
   object: ObjectRow;
   defs: PropertyDef[];
@@ -21,6 +22,8 @@ const val = (k: string) => object.properties[k] ?? '';
                 <option value="">Empty</option>
                 {(d.options ?? []).map((o) => <option value={o} selected={val(d.key) === o}>{o}</option>)}
               </select>
+            ) : d.kind === 'date' ? (
+              <DatePicker mode="field" id={`p_${d.key}`} name={`p_${d.key}`} value={String(val(d.key))} label={d.label} class="w-full" />
             ) : d.kind === 'relation' ? (
               <select id={`p_${d.key}`} name={`p_${d.key}`} class="field">
                 <option value="">Empty</option>
@@ -34,7 +37,7 @@ const val = (k: string) => object.properties[k] ?? '';
                 name={`p_${d.key}`}
                 class="field"
                 placeholder="Empty"
-                type={d.kind === 'number' ? 'number' : d.kind === 'date' ? 'date' : d.kind === 'url' ? 'url' : 'text'}
+                type={d.kind === 'number' ? 'number' : d.kind === 'url' ? 'url' : 'text'}
                 step={d.kind === 'number' ? 'any' : undefined}
                 inputmode={d.kind === 'number' ? 'decimal' : undefined}
                 value={String(val(d.key))}

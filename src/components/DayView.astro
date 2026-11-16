@@ -3,6 +3,7 @@ import Editor from './react/Editor';
 import Backlinks from './Backlinks.astro';
 import ObjectList from './ObjectList.astro';
 import Icon from './Icon.astro';
+import DatePicker from './DatePicker.astro';
 import { activityOn, daysWithNotes, findDay, getObject, getTypeById, markOpened } from '../lib/db';
 import { editorProps } from '../lib/editor-props';
 import { addDays, dayLabel } from '../lib/format';
@@ -39,10 +40,7 @@ const fmt = (iso: string, opt: Intl.DateTimeFormatOptions) =>
     <a href={`/day/${addDays(date, -1)}`} class="btn px-2" aria-label="Previous day" title="Previous day ( [ )"><Icon name="chevron-left" size={16} /></a>
     {date !== today && <a href="/" class="btn" title="Today (t)">Today</a>}
     <a href={`/day/${addDays(date, 1)}`} class="btn px-2" aria-label="Next day" title="Next day ( ] )"><Icon name="chevron-right" size={16} /></a>
-    <form action="/day" method="get" class="ml-1">
-      <label class="sr-only" for="jump">Go to date</label>
-      <input id="jump" name="d" type="date" value={date} class="field w-auto py-1.5 text-sm" onchange="this.form.submit()" />
-    </form>
+    <DatePicker mode="navigate" value={date} today={today} label="Go to date" align="right" class="ml-1" />
   </div>
 </div>
 

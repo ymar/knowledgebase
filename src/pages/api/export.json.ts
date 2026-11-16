@@ -10,7 +10,7 @@ export const GET: APIRoute = async () => {
   return new Response(body, {
     headers: {
       'content-type': 'application/json; charset=utf-8',
-      'content-disposition': `attachment; filename="cairn-export-${stamp}.json"`,
+      'content-disposition': `attachment; filename="kb-export-${stamp}.json"`,
       'cache-control': 'no-store',
     },
   });
