@@ -3,7 +3,8 @@ import Base from '../../../layouts/Base.astro';
 import ObjectCards from '../../../components/ObjectCards.astro';
 import TypeTile from '../../../components/TypeTile.astro';
 import Icon from '../../../components/Icon.astro';
-import { getSummaries, getTypeBySlug, queryObjects, recentlyOpened } from '../../../lib/db';
+import { getSummaries, getTypeBySlug, listCollections, listViews, queryObjects, recentlyOpened } from '../../../lib/db';
+import { specToQuery } from '../../../lib/view-results';
 import { OPS, SORTS, readListParams, withParams } from '../../../lib/list-params';
 import { setWorkspaceCookie } from '../../../lib/workspace';
 import { relationIds } from '../../../lib/schema';
@@ -31,9 +32,15 @@ if (Astro.url.searchParams.has('view')) {
 
 const isDay = type.id === 'type_day';
 const today = todayIn(requestTimeZone(Astro.request));
-const plain = params.show === 'all' && params.filters.length === 0;
+const plain = params.show === 'all' && params.filters.length === 0 && !params.collection;
+const [views, collections] = await Promise.all([listViews(type.id), listCollections(type.id)]);
+// `sv` marks the saved view being shown (`v` is taken by filter values).
+const activeViewId = Astro.url.searchParams.get('sv');
+const activeCollection = collections.find((c) => c.id === params.collection);
+// What "Save as view" stores: the page's current state without the view marker.
+const currentQs = (() => { const q = new URLSearchParams(Astro.url.search); q.delete('sv'); return q.toString(); })();
 const [items, recent] = await Promise.all([
-  queryObjects({ ws: Astro.locals.workspace.id, typeId: type.id, defs, show: params.show, filters: params.filters, sort: params.sort }),
+  queryObjects({ ws: Astro.locals.workspace.id, typeId: type.id, defs, show: params.show, filters: params.filters, sort: params.sort, collectionId: params.collection }),
   plain ? recentlyOpened(Astro.locals.workspace.id, 4, type.id) : Promise.resolve([]),
 ]);
 
@@ -106,7 +113,46 @@ const hasFilters = params.filters.length > 0 || params.sort.key !== 'updated';
     </section>
   )}
 
-  <div class="mt-10 flex flex-wrap items-center justify-between gap-3">
+  {(views.length > 0 || collections.length > 0) && (
+    <div class="mt-10 space-y-2">
+      {views.length > 0 && (
+        <nav aria-label="Saved views" class="flex flex-wrap items-center gap-1.5 text-sm">
+          <span class="mr-1 text-xs font-medium uppercase tracking-wider text-muted">Views</span>
+          {views.map((v) => (
+            <span class:list={['inline-flex items-center rounded-lg border', v.id === activeViewId ? 'border-ink/40 bg-card' : 'border-line']}>
+              <a href={`/t/${type.slug}?${specToQuery(v.spec)}&sv=${v.id}`} aria-current={v.id === activeViewId ? 'page' : undefined}
+                class="px-2.5 py-1 text-ink/80 hover:text-ink aria-[current=page]:font-medium aria-[current=page]:text-ink">{v.name}</a>
+              {v.id === activeViewId && (
+                <form method="post" action={`/api/views/${v.id}`} class="contents" onsubmit="return confirm('Delete this saved view? Notes that embed it will say it was deleted.')">
+                  <input type="hidden" name="_action" value="delete" />
+                  <button type="submit" class="pr-2 text-muted hover:text-red-600" aria-label={`Delete view ${v.name}`}>×</button>
+                </form>
+              )}
+            </span>
+          ))}
+        </nav>
+      )}
+      {collections.length > 0 && (
+        <nav aria-label="Collections" class="flex flex-wrap items-center gap-1.5 text-sm">
+          <span class="mr-1 text-xs font-medium uppercase tracking-wider text-muted">Collections</span>
+          {collections.map((c) => (
+            <a href={withParams(url, { collection: c.id === params.collection ? null : c.id, sv: null })} aria-current={c.id === params.collection ? 'true' : undefined}
+              class="rounded-lg border border-line px-2.5 py-1 text-ink/80 hover:text-ink aria-[current=true]:border-ink/40 aria-[current=true]:bg-card aria-[current=true]:font-medium aria-[current=true]:text-ink">
+              {c.name} <span class="tabular-nums text-muted">{c.count}</span>
+            </a>
+          ))}
+          {activeCollection && (
+            <form method="post" action={`/api/collections/${activeCollection.id}`} class="ml-auto" onsubmit="return confirm('Delete this collection? Its objects stay.')">
+              <input type="hidden" name="_action" value="delete" />
+              <button type="submit" class="rounded-lg px-2 py-1 text-xs text-muted hover:bg-hover hover:text-red-600">Delete collection</button>
+            </form>
+          )}
+        </nav>
+      )}
+    </div>
+  )}
+
+  <div class:list={['flex flex-wrap items-center justify-between gap-3', views.length > 0 || collections.length > 0 ? 'mt-4' : 'mt-10']}>
     <nav aria-label="Show" class="flex gap-1 rounded-lg bg-panel p-1 text-sm">
       {tabs.map(([key, label]) => (
         <a href={withParams(url, { show: key === 'all' ? null : key })}
@@ -133,6 +179,7 @@ const hasFilters = params.filters.length > 0 || params.sort.key !== 'updated';
     </summary>
     <form method="get" class="space-y-2 border-t border-line p-4" id="filters">
       {params.show !== 'all' && <input type="hidden" name="show" value={params.show} />}
+      {params.collection && <input type="hidden" name="collection" value={params.collection} />}
       {filterRows.map((f) => (
         <div class="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_1.4fr]">
           <select name="f" class="field" aria-label="Property" data-filter-key>
@@ -161,6 +208,13 @@ const hasFilters = params.filters.length > 0 || params.sort.key !== 'updated';
         {hasFilters && <a href={withParams(url, { f: null, op: null, v: null, sort: null, dir: null })} class="btn">Reset</a>}
         <button class="btn-primary" type="submit">Apply</button>
       </div>
+    </form>
+    <form method="post" action="/api/views" class="flex flex-wrap items-center gap-2 border-t border-line px-4 py-3">
+      <input type="hidden" name="typeId" value={type.id} />
+      <input type="hidden" name="qs" value={currentQs} />
+      <label for="view-name" class="text-sm text-muted">Save this as a view</label>
+      <input id="view-name" name="name" required autocomplete="off" placeholder="e.g. Active projects" class="field min-w-0 flex-1 py-1.5" />
+      <button class="btn py-1.5" type="submit">Save view</button>
     </form>
   </details>
 

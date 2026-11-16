@@ -26,3 +26,5 @@ export * from './merge';
 export * from './export';
 export * from './workspaces';
 export * from './tasks';
+export * from './views';
+export * from './collections';

@@ -192,7 +192,7 @@ export default function CommandPalette({
         });
       }
     }
-    for (const [label, url, icon] of [['Workspaces', '/workspaces', 'users'], ['Types', '/types', 'sliders'], ['Trash', '/trash', 'archive'], ['Export', '/export', 'download']]) {
+    for (const [label, url, icon] of [['Tasks', '/tasks', 'check-square'], ['Workspaces', '/workspaces', 'users'], ['Types', '/types', 'sliders'], ['Trash', '/trash', 'archive'], ['Export', '/export', 'download']]) {
       if (query && label.toLowerCase().startsWith(lower)) {
         out.push({ key: `p:${url}`, group: 'Go to', label, detail: 'Page', icon: { icon, color: '#78716c' }, run: go(url) });
       }

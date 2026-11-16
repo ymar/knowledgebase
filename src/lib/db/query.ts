@@ -29,10 +29,18 @@ export async function queryObjects(opts: {
   filters?: Filter[];
   sort?: Sort;
   limit?: number;
+  /** Only members of this collection. */
+  collectionId?: string;
 }): Promise<ObjectCard[]> {
   const where: string[] = ['o.workspace_id = ?', 'o.type_id = ?', 'o.deleted_at IS NULL'];
   const args: unknown[] = [opts.ws, opts.typeId];
   const defs = new Map(opts.defs.filter((d) => SAFE_KEY.test(d.key)).map((d) => [d.key, d]));
+
+  if (opts.collectionId) {
+    where.push(`EXISTS (SELECT 1 FROM collection_items ci JOIN collections c ON c.id = ci.collection_id AND c.deleted_at IS NULL
+      WHERE ci.collection_id = ? AND ci.object_id = o.id)`);
+    args.push(opts.collectionId);
+  }
 
   if (opts.show === 'untagged') {
     where.push(`NOT EXISTS (SELECT 1 FROM links l JOIN objects t ON t.id = l.target_id

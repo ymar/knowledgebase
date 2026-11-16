@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import {
-  addTag, changeType, mergeTags, typeBelongsTo, createObject, findByTitle, getObject, getTypeById, removeTag, renameObject,
+  addTag, addToCollectionByName, changeType, mergeTags, removeFromCollection, typeBelongsTo, createObject, findByTitle, getObject, getTypeById, removeTag, renameObject,
   saveProperties, setPinned, setTypeTemplate, softDeleteObject,
 } from '../../../lib/db';
 import { parsePropertyForm } from '../../../lib/properties';
@@ -42,6 +42,14 @@ export const POST: APIRoute = async ({ params, request, redirect }) => {
       await addTag(id, tagId);
       break;
     }
+    case 'add-collection': {
+      const name = field('collection').slice(0, 80);
+      if (name) await addToCollectionByName(object, name);
+      break;
+    }
+    case 'remove-collection':
+      await removeFromCollection(id, field('collectionId'));
+      break;
     case 'remove-tag':
       await removeTag(id, field('tagId'));
       break;

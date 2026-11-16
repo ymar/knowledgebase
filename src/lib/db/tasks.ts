@@ -42,3 +42,46 @@ export async function tasksForDay(ws: string, date: string, today: string): Prom
   ]);
   return { planned: planned.results as TaskRow[], due: due.results as TaskRow[] };
 }
+
+export interface TaskBuckets {
+  inbox: TaskRow[];
+  today: TaskRow[];
+  /** Planned or due on another day, oldest first (overdue at the top). */
+  scheduled: TaskRow[];
+  done: TaskRow[];
+}
+
+/**
+ * Every task of a workspace, in the sections Capacities uses on its Tasks view:
+ * Inbox (open, no date and no deadline), Today (planned today, or deadline today or passed),
+ * Scheduled (open, planned or due another day; overdue first), Completed (20 most recent).
+ */
+export async function allTasks(ws: string, today: string): Promise<TaskBuckets> {
+  const d = db();
+  const [open, done] = await d.batch([
+    d.prepare(`${SELECT} WHERE o.workspace_id = ? AND o.deleted_at IS NULL AND ${TASK_TYPE_SQL}
+               AND COALESCE(json_extract(o.properties, '$.done'), 0) = 0
+               ORDER BY COALESCE(json_extract(o.properties, '$.date'), json_extract(o.properties, '$.deadline'), '9999'),
+                        (json_extract(o.properties, '$.deadline') IS NULL), o.created_at
+               LIMIT 500`).bind(ws),
+    d.prepare(`${SELECT} WHERE o.workspace_id = ? AND o.deleted_at IS NULL AND ${TASK_TYPE_SQL}
+               AND COALESCE(json_extract(o.properties, '$.done'), 0) = 1
+               ORDER BY o.updated_at DESC LIMIT 20`).bind(ws),
+  ]);
+  const b: TaskBuckets = { inbox: [], today: [], scheduled: [], done: done.results as TaskRow[] };
+  for (const t of open.results as TaskRow[]) {
+    if (!t.date && !t.deadline) b.inbox.push(t);
+    else if (t.date === today || (t.deadline && t.deadline <= today)) b.today.push(t);
+    else b.scheduled.push(t);
+  }
+  return b;
+}
+
+/** The workspace's Task type id, if it exists and is on. */
+export async function taskTypeIdFor(ws: string): Promise<string | null> {
+  const r = await db()
+    .prepare(`SELECT t.id FROM types t WHERE t.workspace_id = ? AND t.enabled = 1 AND ${TASK_TYPE_SQL} LIMIT 1`)
+    .bind(ws)
+    .first<{ id: string }>();
+  return r?.id ?? null;
+}

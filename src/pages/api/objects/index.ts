@@ -12,7 +12,7 @@ import { resolveWs } from '../../../lib/workspace';
 export const POST: APIRoute = async ({ request, redirect, locals }) => {
   const isJson = request.headers.get('content-type')?.includes('application/json');
   const input = isJson
-    ? ((await request.json().catch(() => ({}))) as { typeId?: string; title?: string; workspaceId?: string; date?: string })
+    ? ((await request.json().catch(() => ({}))) as { typeId?: string; title?: string; workspaceId?: string; date?: string; back?: string })
     : Object.fromEntries(await request.formData());
   const ws = resolveWs(locals, input.workspaceId ? String(input.workspaceId) : null);
   const typeId = String(input.typeId ?? '');
@@ -38,6 +38,8 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
   const properties = type.day_key && isIsoDay(date) ? { [type.day_key]: date } : undefined;
   id ??= await createObject({ workspaceId: ws, typeId: type.id, title, properties });
 
-  if (!isJson) return redirect(`/o/${id}`, 303);
+  // Forms may ask to return where they came from (e.g. the Tasks page); only local paths.
+  const back = String(input.back ?? '');
+  if (!isJson) return redirect(/^\/[a-z]/.test(back) ? back : `/o/${id}`, 303);
   return json((await getSummaries([id]))[id], 201);
 };

@@ -119,3 +119,14 @@ kbd { @apply rounded border border-line bg-card px-1.5 py-0.5 font-sans text-[11
 .editor-shell [data-content-type='heading'][data-level='1'] { --level: 1.65em; }
 .editor-shell [data-content-type='heading'][data-level='2'] { --level: 1.35em; }
 .editor-shell [data-content-type='heading'][data-level='3'] { --level: 1.15em; }
+/* Embedded blocks render their own links: no editor link styling. */
+.editor-shell [data-query] a,
+.editor-shell [data-object-card] a { color: inherit; text-decoration: none; }
+.editor-shell [data-query] a:hover .truncate,
+.editor-shell [data-object-card] a:hover .font-semibold { text-decoration: underline; text-underline-offset: 2px; }
+/* A selected embed is only highlighted while you're in the editor (the initial selection otherwise marks it on load). */
+.editor-shell .bn-editor:not(:focus-within) .ProseMirror-selectednode,
+.editor-shell .bn-editor:not(:focus-within) .ProseMirror-selectednode > * { outline: none !important; background: transparent !important; box-shadow: none !important; }
+.editor-shell .bn-editor:not(:focus-within) .ProseMirror-selectednode [data-query] { background: var(--card) !important; }
+.editor-shell .bn-editor:not(:focus-within) .ProseMirror-selectednode [data-query]::after,
+.editor-shell .bn-editor:not(:focus-within) .ProseMirror-selectednode [data-object-card]::after { display: none !important; }

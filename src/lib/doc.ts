@@ -7,6 +7,8 @@
 import { dayLabel } from './format';
 
 export const MENTION = 'mention';
+export const OBJECT_CARD = 'objectCard';
+export const QUERY_BLOCK = 'query';
 
 export interface MentionProps {
   id: string;
@@ -101,7 +103,11 @@ function mentionsIn(items: Inline[], out: Set<string>): void {
 /** Distinct object ids mentioned anywhere in the document. */
 export function extractMentionIds(blocks: Block[]): string[] {
   const ids = new Set<string>();
-  walk(blocks, (b) => inlineItems(b).forEach((i) => mentionsIn(i, ids)));
+  walk(blocks, (b) => {
+    inlineItems(b).forEach((i) => mentionsIn(i, ids));
+    // Object card blocks link to their object, like a mention.
+    if (b.type === OBJECT_CARD && typeof b.props?.objectId === 'string' && b.props.objectId) ids.add(b.props.objectId);
+  });
   return [...ids];
 }
 

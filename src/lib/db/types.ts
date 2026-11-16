@@ -148,6 +148,14 @@ export async function countAllOfType(id: string): Promise<number> {
   return r?.n ?? 0;
 }
 
+/** Deletes a type with no objects at all, plus its saved views and (empty) collections. */
 export async function deleteType(id: string): Promise<void> {
-  await db().prepare('DELETE FROM types WHERE id = ? AND NOT EXISTS (SELECT 1 FROM objects WHERE type_id = ?)').bind(id, id).run();
+  const d = db();
+  const guard = 'AND NOT EXISTS (SELECT 1 FROM objects WHERE type_id = ?2)';
+  await d.batch([
+    d.prepare(`DELETE FROM collection_items WHERE collection_id IN (SELECT id FROM collections WHERE type_id = ?1) ${guard}`).bind(id, id),
+    d.prepare(`DELETE FROM collections WHERE type_id = ?1 ${guard}`).bind(id, id),
+    d.prepare(`DELETE FROM views WHERE type_id = ?1 ${guard}`).bind(id, id),
+    d.prepare(`DELETE FROM types WHERE id = ?1 ${guard}`).bind(id, id),
+  ]);
 }

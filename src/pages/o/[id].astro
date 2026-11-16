@@ -8,7 +8,7 @@ import TaggedList from '../../components/TaggedList.astro';
 import Snippet from '../../components/Snippet.astro';
 import Editor from '../../components/react/Editor';
 import {
-  allTags, getTypeById, getTypeBySlug, getObject, listObjectsByType, listTypes, markOpened, pickedTags,
+  allTags, collectionsOf, listCollections, getTypeById, getTypeBySlug, getObject, listObjectsByType, listTypes, markOpened, pickedTags,
 } from '../../lib/db';
 import { editorProps } from '../../lib/editor-props';
 import { isTaskType } from '../../lib/db/tasks';
@@ -42,12 +42,14 @@ for (const d of type.properties) {
   const target = await getTypeBySlug(d.target);
   if (target) relationOptions[d.key] = await listObjectsByType(object.workspace_id, target.id, 200);
 }
-const [{ refs, types }, allTypes, tags, tagOptions, unlinked] = await Promise.all([
+const [{ refs, types }, allTypes, tags, tagOptions, unlinked, inCollections, typeCollections] = await Promise.all([
   editorProps(object.workspace_id, object.content),
   listTypes(object.workspace_id),
   isTag ? Promise.resolve([]) : pickedTags(object.id),
   allTags(object.workspace_id),
   unlinkedMentions(object),
+  collectionsOf(object.id),
+  listCollections(type.id),
 ]);
 const hasTemplate = type.template.length > 0;
 
@@ -122,6 +124,29 @@ const notice = Astro.url.searchParams.get('notice');
         <input id="add-tag" name="tag" list="tag-options" placeholder="+ Add tag" autocomplete="off"
           class="-ml-1.5 w-32 rounded-md bg-transparent px-1.5 py-0.5 text-sm text-muted placeholder:text-muted focus:bg-card focus:text-ink focus:outline-none focus:ring-1 focus:ring-line" />
         <datalist id="tag-options">{tagOptions.map((t) => <option value={t.title} />)}</datalist>
+      </form>
+    </div>
+  )}
+
+  {!isTag && type.workspace_id !== null && (
+    <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
+      {inCollections.map((c) => (
+        <form method="post" action={`/api/objects/${object.id}`} class="contents">
+          <input type="hidden" name="_action" value="remove-collection" />
+          <input type="hidden" name="collectionId" value={c.id} />
+          <span class="inline-flex items-center gap-1 rounded-md border border-line px-1.5 py-0.5 text-sm text-ink/80">
+            <Icon name="folder" size={12} class="text-muted" />
+            <a href={`/t/${type.slug}?collection=${c.id}`} class="hover:underline">{c.name}</a>
+            <button type="submit" aria-label={`Remove from ${c.name}`} class="ml-0.5 rounded text-muted hover:text-ink"><Icon name="x" size={12} /></button>
+          </span>
+        </form>
+      ))}
+      <form method="post" action={`/api/objects/${object.id}`} class="inline-flex">
+        <input type="hidden" name="_action" value="add-collection" />
+        <label class="sr-only" for="add-collection">Add to collection</label>
+        <input id="add-collection" name="collection" list="collection-options" placeholder="+ Add to collection" autocomplete="off"
+          class="-ml-1.5 w-40 rounded-md bg-transparent px-1.5 py-0.5 text-sm text-muted placeholder:text-muted focus:bg-card focus:text-ink focus:outline-none focus:ring-1 focus:ring-line" />
+        <datalist id="collection-options">{typeCollections.filter((c) => !inCollections.some((x) => x.id === c.id)).map((c) => <option value={c.name} />)}</datalist>
       </form>
     </div>
   )}

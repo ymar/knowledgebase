@@ -45,6 +45,7 @@ export async function purgeObject(id: string): Promise<void> {
   const d = db();
   await d.batch([
     d.prepare('DELETE FROM links WHERE (source_id = ?1 OR target_id = ?1) AND EXISTS (SELECT 1 FROM objects WHERE id = ?1 AND deleted_at IS NOT NULL)').bind(id),
+    d.prepare('DELETE FROM collection_items WHERE object_id = ?1 AND EXISTS (SELECT 1 FROM objects WHERE id = ?1 AND deleted_at IS NOT NULL)').bind(id),
     d.prepare('DELETE FROM objects WHERE id = ? AND deleted_at IS NOT NULL').bind(id),
   ]);
 }

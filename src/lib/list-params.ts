@@ -15,6 +15,8 @@ export interface ListParams {
   filters: Filter[];
   sort: Sort;
   view: 'list' | 'cards';
+  /** Collection id, if filtering to one. */
+  collection?: string;
 }
 
 /** Reads type-page state from the URL; the view falls back to a cookie, then 'list'. */
@@ -39,7 +41,8 @@ export function readListParams(url: URL, defs: PropertyDef[], cookieView?: strin
     dir: sp.get('dir') === 'asc' ? 'asc' : sp.get('dir') === 'desc' ? 'desc' : sortKey === 'title' ? 'asc' : 'desc',
   };
   const raw = sp.get('view') ?? cookieView;
-  return { show, filters, sort, view: raw === 'cards' ? 'cards' : 'list' };
+  const collection = sp.get('collection') ?? undefined;
+  return { show, filters, sort, view: raw === 'cards' ? 'cards' : 'list', collection: collection || undefined };
 }
 
 /** Same page with some params replaced. */

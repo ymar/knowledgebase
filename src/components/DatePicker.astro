@@ -22,17 +22,19 @@ interface Props {
   label: string;
   align?: 'left' | 'right';
   class?: string;
+  /** Shown when there is no value. */
+  placeholder?: string;
 }
-const { mode, value, today, name, id, label, align = 'left', class: cls = '' } = Astro.props;
+const { mode, value, today, name, id, label, align = 'left', class: cls = '', placeholder = 'Empty' } = Astro.props;
 const short = (iso: string) =>
   iso ? new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`)) : '';
 ---
-<div class={`dp relative inline-block ${cls}`} data-dp data-mode={mode} data-value={value} data-today={today ?? ''}>
+<div class={`dp relative inline-block ${cls}`} data-dp data-mode={mode} data-value={value} data-today={today ?? ''} data-placeholder={placeholder}>
   <button type="button" id={id} data-dp-trigger aria-haspopup="dialog" aria-expanded="false"
     aria-label={`${label}: ${value ? dayLabel(value) : 'empty'}`}
     class="field inline-flex w-full items-center gap-2 text-left">
     <Icon name="calendar" size={16} class="shrink-0 text-muted" />
-    <span data-dp-label class:list={['flex-1 truncate', !value && 'text-muted']}>{value ? short(value) : 'Empty'}</span>
+    <span data-dp-label class:list={['flex-1 truncate', !value && 'text-muted']}>{value ? short(value) : placeholder}</span>
   </button>
   {mode === 'field' && <input type="hidden" name={name} value={value} data-dp-input />}
   <div data-dp-pop hidden role="dialog" aria-label={label}
@@ -140,7 +142,7 @@ const short = (iso: string) =>
         input.value = d;
         input.dispatchEvent(new Event('change', { bubbles: true }));
       }
-      labelEl.textContent = d ? fmt(d, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : 'Empty';
+      labelEl.textContent = d ? fmt(d, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : root.dataset.placeholder || 'Empty';
       labelEl.classList.toggle('text-muted', !d);
       close();
     };

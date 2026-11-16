@@ -5,20 +5,33 @@
  */
 import type { TaskRow } from '../lib/db';
 
-interface Props { planned: TaskRow[]; due: TaskRow[]; today: string }
-const { planned, due, today } = Astro.props;
+interface Group { key: string; label: string; items: TaskRow[] }
+interface Props {
+  today: string;
+  /** Daily note shape. */
+  planned?: TaskRow[];
+  due?: TaskRow[];
+  /** Tasks page shape: any groups, shown with headings. */
+  groups?: Group[];
+  /** Show the section even when empty (Tasks page). */
+  always?: boolean;
+  heading?: string;
+}
+const { today, always = false, heading = 'Tasks' } = Astro.props;
+const groups: Group[] = Astro.props.groups ?? [
+  { key: 'planned', label: 'Planned', items: Astro.props.planned ?? [] },
+  { key: 'due', label: 'Overdue and due', items: Astro.props.due ?? [] },
+];
+const showHeadings = Astro.props.groups ? Astro.props.groups.length > 1 : (Astro.props.due ?? []).length > 0;
 const short = (iso: string) => new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
-const empty = planned.length + due.length === 0;
+const empty = groups.every((g) => g.items.length === 0) && !always;
 ---
-<section data-tasks aria-labelledby="tasks-h" class:list={['mt-8', empty && 'hidden']}>
-  <h2 id="tasks-h" class="eyebrow mb-3">Tasks</h2>
+<section data-tasks aria-label={heading || 'Tasks'} class:list={['mt-8', empty && 'hidden']}>
+  {heading && <h2 class="eyebrow mb-3">{heading}</h2>}
   <div class="space-y-4">
-    {[
-      { label: 'Planned', items: planned, key: 'planned' },
-      { label: 'Overdue and due', items: due, key: 'due' },
-    ].map((g) => (
+    {groups.map((g) => (
       <div data-group={g.key} class:list={[g.items.length === 0 && 'hidden']}>
-        {due.length > 0 && <h3 class="mb-1.5 text-xs font-medium text-muted">{g.label}</h3>}
+        {showHeadings && <h3 class="mb-1.5 text-xs font-medium text-muted">{g.label}<span class="ml-1.5 tabular-nums text-muted/70">{g.items.length}</span></h3>}
         <ul data-task-list={g.key} class="divide-y divide-line overflow-hidden rounded-xl border border-line bg-card">
           {g.items.map((t) => {
             const late = !t.done && !!t.deadline && t.deadline < today;
@@ -34,8 +47,8 @@ const empty = planned.length + due.length === 0;
                     Due {short(t.deadline)}
                   </span>
                 )}
-                {!t.deadline && t.date && t.date < today && !t.done && (
-                  <span class="shrink-0 rounded-md bg-panel px-1.5 py-0.5 text-xs text-muted">From {short(t.date)}</span>
+                {!t.deadline && t.date && t.date !== today && (
+                  <span class="shrink-0 rounded-md bg-panel px-1.5 py-0.5 text-xs text-muted">{t.date < today && !t.done ? 'From' : 'On'} {short(t.date)}</span>
                 )}
               </li>
             );

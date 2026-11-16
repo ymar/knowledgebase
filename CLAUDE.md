@@ -82,6 +82,15 @@ Do not copy Capacities assets, icons, logo or wording.
   `POST /api/objects/:id/done` (sets one checkbox via `json_set`). Tasks are left out of Date references.
   "/ Turn into task" in the editor turns the current line into a Task (planned for the day on a daily note,
   done if the checklist item was ticked) and replaces the line with a link to it.
+- Tasks page (`/tasks`, sidebar under Home; Task leaves the types list): Today (planned today or due today
+  or earlier), Inbox (no date, no deadline), Scheduled (grouped per day, overdue first), Completed (20 latest).
+  Forms may post `back=/tasks` to `POST /api/objects` to return there.
+- Saved views and collections (migration 0011): `views` (a type page's filters as JSON spec; URL marker `sv`,
+  because `v` carries filter values) and `collections` + `collection_items` (hand-picked, one type). Type pages
+  show view and collection chips; "Save this as a view" sits in Filter and sort. Objects get a collections field.
+- Editor embeds (`src/components/react/blocks.tsx`): `/ Query` embeds a saved view as a live list; `/ Object card`
+  shows an object as a small or wide card and counts as a link (doc.ts `OBJECT_CARD`). Selected-embed highlight is
+  hidden while the editor isn't focused (global.css).
 - `astro dev` runs as a managed background process: stop it with `npx astro dev stop` before `db:reset`.
 
 ## Code rules
@@ -191,10 +200,10 @@ Ranked by value for daily use. SCHEMA items need the SQL approved first.
 - [x] **N2 Tasks** SCHEMA: a Task type with Done (checkbox), Date (when to work on it) and Deadline; the daily
       note gets a Tasks section with tasks dated that day plus overdue ones; checklist items can be turned into
       tasks. Recurring tasks later.
-- [ ] **N3 Queries in notes** SCHEMA: save a type page's filter/sort as a named view and embed it as a live
+- [x] **N3 Queries in notes** SCHEMA: save a type page's filter/sort as a named view and embed it as a live
       block in any note (Capacities' query blocks). Replaces "Saved queries" above.
-- [ ] **N4 Collections** (as above).
-- [ ] **N5 Object embeds / cards** in the editor (as above), then block references (P3).
+- [x] **N4 Collections** (as above).
+- [x] **N5 Object embeds / cards** in the editor (as above), then block references (P3).
 - [ ] **N6 Bulk actions** on type pages: select several, set a property, tag, move to trash.
 - [ ] **N7 Aliases**: extra names per object, used by `@` search and unlinked mentions.
 - [ ] **N8 Calendar depth**: a time property and times on scheduled objects; week and month views;
@@ -202,6 +211,17 @@ Ranked by value for daily use. SCHEMA items need the SQL approved first.
 - [ ] **N9 Icons/covers** and **quick capture** (as above).
 - [ ] **Small**: move an object to another workspace; Day/Tag switchable per workspace; date picker in the
       filter row; "+ Type" buttons on other object pages (KB's own idea, not in Capacities).
+
+### Follow-ups from the Capacities docs (tasks, queries, collections, bulk actions)
+
+- [ ] **Tasks, closer to Capacities**: Status (Not started / Next up / In progress / Done) and Priority (`!`..`!!!`),
+      Context (link to a project or meeting; a Tasks tab on that object), `()` + space and Cmd/Ctrl+Shift+T to
+      create, inline syntax ("!! tomorrow"), recurring tasks (fixed schedule or after completion), "move today's
+      tasks to tomorrow", and tasks completed on a day shown on that day's note (needs a done date).
+- [ ] **Queries, closer to Capacities**: several types in one query, filters on tags / backlinks / words,
+      group by a property, a limit (also random), and queries that include blocks.
+- [ ] **Bulk actions** (N6): see docs.capacities.io/reference/bulk-actions.
+- Calendar integrations (Google/Outlook sync) stay out of scope: third-party integrations.
 
 ### Only if asked (P3)
 

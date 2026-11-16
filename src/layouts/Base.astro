@@ -3,7 +3,7 @@ import '../styles/global.css';
 import Icon from '../components/Icon.astro';
 import TypeTile from '../components/TypeTile.astro';
 import CommandPalette from '../components/react/CommandPalette';
-import { listTypes, countByType, listPinned } from '../lib/db';
+import { listTypes, countByType, listPinned, isTaskType } from '../lib/db';
 import { dayLabel } from '../lib/format';
 
 interface Props { title?: string; activeTypeId?: string; activeObjectId?: string; home?: boolean; wide?: boolean }
@@ -13,6 +13,9 @@ const ws = Astro.locals.workspace;
 const themeCookie = Astro.cookies.get('theme')?.value;
 const theme = themeCookie === 'light' || themeCookie === 'dark' ? themeCookie : undefined;
 const [types, counts, pinned] = await Promise.all([listTypes(ws.id), countByType(ws.id), listPinned(ws.id)]);
+// Tasks get their own entry at the top, like Capacities; the Task type leaves the types list.
+const taskType = types.find((t) => isTaskType(t.id));
+const navTypes = types.filter((t) => !isTaskType(t.id));
 const paletteTypes = types.map((t) => ({ id: t.id, name: t.name, slug: t.slug, icon: t.icon, color: t.color }));
 ---
 <!doctype html>
@@ -92,6 +95,14 @@ const paletteTypes = types.map((t) => ({ id: t.id, name: t.name, slug: t.slug, i
           <span class="flex h-6 w-6 items-center justify-center text-muted"><Icon name="home" size={16} /></span>
           Home
         </a>
+        {taskType && (
+          <a href="/tasks" aria-current={Astro.url.pathname === '/tasks' ? 'page' : undefined}
+            class="-mt-3 mb-4 flex items-center gap-3 rounded-lg px-2 py-1.5 text-sm text-ink/80 hover:bg-hover aria-[current=page]:bg-card aria-[current=page]:font-medium aria-[current=page]:text-ink aria-[current=page]:shadow-xs">
+            <span class="flex h-6 w-6 items-center justify-center text-muted"><Icon name="check-square" size={16} /></span>
+            <span class="flex-1">Tasks</span>
+            <span class="text-xs tabular-nums text-muted">{counts[taskType.id] ?? 0}</span>
+          </a>
+        )}
 
         {pinned.length > 0 && (
           <>
@@ -112,7 +123,7 @@ const paletteTypes = types.map((t) => ({ id: t.id, name: t.name, slug: t.slug, i
 
         <p class="eyebrow mb-1.5 px-2">Types</p>
         <ul class="space-y-0.5">
-          {types.map((t) => (
+          {navTypes.map((t) => (
             <li>
               <a href={`/t/${t.slug}`}
                 aria-current={t.id === activeTypeId ? 'page' : undefined}

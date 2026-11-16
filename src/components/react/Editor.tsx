@@ -1,6 +1,6 @@
 import '@blocknote/mantine/style.css';
 import { BlockNoteSchema, createCodeBlockSpec, defaultBlockSpecs, defaultInlineContentSpecs } from '@blocknote/core';
-import { filterSuggestionItems } from '@blocknote/core/extensions';
+import { filterSuggestionItems, insertOrUpdateBlockForSlashMenu } from '@blocknote/core/extensions';
 import {
   createReactInlineContentSpec,
   getDefaultReactSlashMenuItems,
@@ -12,6 +12,7 @@ import { BlockNoteView } from '@blocknote/mantine';
 import { codeBlockOptions, syntaxHighlighter } from '@blocknote/code-block';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { TypeTile } from './TypeTile';
+import { EditorEnv, ObjectCardBlock, QueryBlock } from './blocks';
 
 export interface TypeInfo {
   id: string;
@@ -93,6 +94,8 @@ const schema = BlockNoteSchema.create({
   blockSpecs: {
     ...defaultBlockSpecs,
     codeBlock: createCodeBlockSpec(codeBlockOptions),
+    objectCard: ObjectCardBlock(),
+    query: QueryBlock(),
   },
   inlineContentSpecs: { ...defaultInlineContentSpecs, mention: Mention },
 });
@@ -317,6 +320,26 @@ export default function Editor(props: {
       }]
     : [];
 
+  /** "/ Object card" and "/ Query": insert the block; it asks which object or saved view to show. */
+  const embedItems: DefaultReactSuggestionItem[] = [
+    {
+      title: 'Object card',
+      subtext: 'Show an object as a card',
+      aliases: ['card', 'embed', 'object'],
+      group: 'Embeds',
+      icon: <TypeTile icon="layout" color="#78716c" size={22} />,
+      onItemClick: () => void insertOrUpdateBlockForSlashMenu(editor, { type: 'objectCard' } as never),
+    },
+    {
+      title: 'Query',
+      subtext: 'A saved view, as a live list',
+      aliases: ['query', 'view', 'list', 'filter'],
+      group: 'Embeds',
+      icon: <TypeTile icon="sliders" color="#78716c" size={22} />,
+      onItemClick: () => void insertOrUpdateBlockForSlashMenu(editor, { type: 'query' } as never),
+    },
+  ];
+
   const toItem = useCallback(
     (s: Summary, group: string): DefaultReactSuggestionItem => ({
       title: s.type_id === DAY ? dayLabel(s.title) : s.title || 'Untitled',
@@ -388,12 +411,13 @@ export default function Editor(props: {
   );
 
   return (
+    <EditorEnv.Provider value={{ workspaceId: props.workspaceId }}>
     <RefsContext.Provider value={{ refs, types: typesById }}>
       <div className="editor-shell">
         <BlockNoteView editor={editor} onChange={onChange} slashMenu={false} theme={theme}>
           <SuggestionMenuController
             triggerCharacter="/"
-            getItems={async (q) => filterSuggestionItems([...taskItems, ...getDefaultReactSlashMenuItems(editor)], q)}
+            getItems={async (q) => filterSuggestionItems([...taskItems, ...embedItems, ...getDefaultReactSlashMenuItems(editor)], q)}
           />
           <SuggestionMenuController triggerCharacter="@" getItems={getObjectItems} />
           <SuggestionMenuController triggerCharacter="[[" getItems={getObjectItems} />
@@ -409,5 +433,6 @@ export default function Editor(props: {
         </p>
       </div>
     </RefsContext.Provider>
+    </EditorEnv.Provider>
   );
 }
