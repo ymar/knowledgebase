@@ -17,16 +17,32 @@ const hydrate = (r: RawType): TypeRow => ({
 /** System types (Day, Tag) are shared by every workspace and always on. */
 export const isSystemType = (t: Pick<TypeRow, 'workspace_id'>): boolean => t.workspace_id === null;
 
-/** The types of one workspace plus the shared system types. Turned-off types only on request. */
+/**
+ * The types of one workspace plus the shared system types, in that workspace's
+ * order (`workspaces.type_order`; unlisted types follow by sort_order).
+ * Turned-off types only on request.
+ */
 export async function listTypes(ws: string, opts: { includeDisabled?: boolean } = {}): Promise<TypeRow[]> {
   const { results } = await db()
     .prepare(
-      `SELECT * FROM types WHERE (workspace_id = ? OR workspace_id IS NULL) ${opts.includeDisabled ? '' : 'AND enabled = 1'}
-       ORDER BY sort_order, name`,
+      `SELECT t.* FROM types t JOIN workspaces w ON w.id = ?
+       WHERE (t.workspace_id = w.id OR t.workspace_id IS NULL) ${opts.includeDisabled ? '' : 'AND t.enabled = 1'}
+       ORDER BY COALESCE((SELECT CAST(j.key AS INTEGER) FROM json_each(w.type_order) j WHERE j.value = t.id), 1000 + t.sort_order),
+                t.name`,
     )
     .bind(ws)
     .all<RawType>();
   return results.map(hydrate);
+}
+
+/** Moves a type one place up or down in a workspace's order. Stores the full order. */
+export async function moveType(ws: string, typeId: string, dir: -1 | 1): Promise<void> {
+  const ids = (await listTypes(ws, { includeDisabled: true })).map((t) => t.id);
+  const i = ids.indexOf(typeId);
+  const j = i + dir;
+  if (i === -1 || j < 0 || j >= ids.length) return;
+  [ids[i], ids[j]] = [ids[j], ids[i]];
+  await db().prepare('UPDATE workspaces SET type_order = ? WHERE id = ?').bind(JSON.stringify(ids), ws).run();
 }
 
 /** True when objects of `type` may live in workspace `ws`. */

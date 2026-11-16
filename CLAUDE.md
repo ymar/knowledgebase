@@ -61,6 +61,8 @@ Do not copy Capacities assets, icons, logo or wording.
   only be created with, or changed to, a type that belongs to their workspace and is on. Turned-off types
   vanish from the sidebar and create menus; their objects stay in search, links and backlinks.
   Opening a type page from another workspace switches to it.
+- Type order is per workspace (migration 0008): `workspaces.type_order` is a JSON array of type ids, read
+  with `json_each` in `listTypes`; unlisted types follow by `sort_order`. Day and Tag are ordered per workspace too.
 - `astro dev` runs as a managed background process: stop it with `npx astro dev stop` before `db:reset`.
 
 ## Code rules

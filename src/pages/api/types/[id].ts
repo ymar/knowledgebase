@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { countAllOfType, deleteType, getTypeById, isSystemType, listTypes, setTypeEnabled, updateType } from '../../../lib/db';
+import { countAllOfType, deleteType, getTypeById, isSystemType, listTypes, moveType, setTypeEnabled, updateType } from '../../../lib/db';
 import { parseTypeForm } from '../../../lib/type-form';
 
 export const POST: APIRoute = async ({ params, request, redirect, locals }) => {
@@ -8,6 +8,12 @@ export const POST: APIRoute = async ({ params, request, redirect, locals }) => {
   const form = await request.formData();
 
   const action = form.get('_action');
+  if (action === 'move-up' || action === 'move-down') {
+    // Order is per workspace; system types (Day, Tag) are ordered in the current one.
+    const ws = type.workspace_id ?? locals.workspace.id;
+    await moveType(ws, type.id, action === 'move-up' ? -1 : 1);
+    return redirect(`/types#type-${type.id}`, 303);
+  }
   if (action === 'enable' || action === 'disable') {
     if (!isSystemType(type)) await setTypeEnabled(type.id, action === 'enable');
     const back = request.headers.get('referer');

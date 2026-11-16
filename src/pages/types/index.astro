@@ -6,8 +6,6 @@ import { countByType, isSystemType, listTypes } from '../../lib/db';
 
 const ws = Astro.locals.workspace;
 const [types, counts] = await Promise.all([listTypes(ws.id, { includeDisabled: true }), countByType(ws.id)]);
-const on = types.filter((t) => t.enabled);
-const off = types.filter((t) => !t.enabled);
 const error = Astro.url.searchParams.get('error');
 ---
 <Base title="Types">
@@ -23,16 +21,30 @@ const error = Astro.url.searchParams.get('error');
   </form>
   {error && <p role="alert" class="mt-2 text-sm text-red-600">{error}</p>}
 
-  {[['On', on], ['Turned off', off]].map(([label, list]) => (list as typeof types).length > 0 && (
-    <section class="mt-8">
-      <h2 class="eyebrow mb-3">{label as string}</h2>
+  <section class="mt-8">
+    <h2 class="eyebrow mb-3">Order and visibility</h2>
       <ul class="divide-y divide-line overflow-hidden rounded-xl border border-line bg-card">
-        {(list as typeof types).map((t) => (
-          <li class="flex items-center gap-3 px-4 py-3">
+        {types.map((t) => (
+          <li class:list={['flex items-center gap-3 px-4 py-3', !t.enabled && 'bg-panel/60']} id={`type-${t.id}`}>
+            <span class="flex flex-col">
+              {(['up', 'down'] as const).map((dir) => {
+                const idx = types.indexOf(t);
+                const edge = dir === 'up' ? idx === 0 : idx === types.length - 1;
+                return (
+                  <form method="post" action={`/api/types/${t.id}`}>
+                    <input type="hidden" name="_action" value={`move-${dir}`} />
+                    <button type="submit" disabled={edge} aria-label={`Move ${t.name} ${dir}`}
+                      class="flex h-5 w-6 items-center justify-center rounded text-muted hover:bg-hover hover:text-ink disabled:invisible">
+                      <Icon name={dir === 'up' ? 'chevron-up' : 'chevron-down'} size={14} />
+                    </button>
+                  </form>
+                );
+              })}
+            </span>
             <a href={`/types/${t.id}`} class="flex min-w-0 flex-1 items-center gap-3 hover:underline">
               <span class:list={[!t.enabled && 'opacity-50']}><TypeTile icon={t.icon} color={t.color} /></span>
               <span class="min-w-0 flex-1">
-                <span class="block font-medium">{t.name}</span>
+                <span class="block font-medium">{t.name}{!t.enabled && <span class="ml-2 text-xs font-normal text-muted">Off</span>}</span>
                 <span class="block truncate text-xs text-muted">
                   {t.properties.length ? t.properties.map((p) => p.label).join(' · ') : 'No properties'}
                 </span>
@@ -53,7 +65,6 @@ const error = Astro.url.searchParams.get('error');
           </li>
         ))}
       </ul>
-    </section>
-  ))}
-  {off.length > 0 && <p class="mt-2 text-xs text-muted">Objects of a turned-off type stay in search, links and backlinks.</p>}
+  </section>
+  <p class="mt-2 text-xs text-muted">The order here is the order in the sidebar and menus of this workspace. Objects of a turned-off type stay in search, links and backlinks.</p>
 </Base>
