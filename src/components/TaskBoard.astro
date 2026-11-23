@@ -1,0 +1,105 @@
+---
+/**
+ * Status board (kanban) for tasks. Drag a card to another column, or use the card's
+ * status select (keyboard and phones). Moving to Done ticks the task; a repeating
+ * task then moves to its next date and stays open.
+ */
+import { BOARD_COLUMNS, type TaskRow } from '../lib/db';
+
+interface Props { columns: Record<(typeof BOARD_COLUMNS)[number], TaskRow[]>; today: string }
+const { columns, today } = Astro.props;
+const short = (iso: string) => new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
+const PRIO: Record<string, string> = { High: '!!!', Medium: '!!', Low: '!' };
+---
+<div data-board class="mt-6 flex snap-x gap-3 overflow-x-auto pb-2">
+  {BOARD_COLUMNS.map((col) => (
+    <section data-column={col} aria-label={col}
+      class="flex w-64 shrink-0 snap-start flex-col rounded-xl border border-line bg-panel p-2 md:w-auto md:min-w-0 md:flex-1">
+      <h3 class="mb-2 flex items-center justify-between px-1.5 text-xs font-medium text-muted">
+        {col}<span data-count class="tabular-nums">{columns[col].length}</span>
+      </h3>
+      <ul data-cards class="flex min-h-16 flex-1 flex-col gap-2">
+        {columns[col].map((t) => (
+          <li draggable="true" data-card={t.id}
+            class="relative cursor-grab rounded-lg border border-line bg-card p-2.5 shadow-xs active:cursor-grabbing">
+            <a href={`/o/${t.id}`} class:list={['block text-sm leading-snug hover:underline', col === 'Done' && 'text-muted line-through']}>
+              {t.priority && <span class="mr-1 text-xs font-bold text-amber-600">{PRIO[t.priority]}</span>}{t.title || 'Untitled'}
+            </a>
+            <div class="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted">
+              {t.date && <span class:list={['rounded bg-panel px-1.5 py-0.5', t.date < today && col !== 'Done' && 'text-red-600']}>{short(t.date)}{t.time && ` ${t.time}`}</span>}
+              {t.deadline && <span class:list={['rounded bg-panel px-1.5 py-0.5', t.deadline < today && col !== 'Done' && 'text-red-600']}>Due {short(t.deadline)}</span>}
+              {t.sub_total > 0 && <span class="rounded bg-panel px-1.5 py-0.5 tabular-nums">{t.sub_done}/{t.sub_total}</span>}
+              {t.repeat && <span title={`Repeats ${t.repeat.toLowerCase()}`}>↻</span>}
+              <label class="sr-only" for={`st-${t.id}`}>Status of {t.title}</label>
+              <select id={`st-${t.id}`} data-status class="ml-auto rounded border-0 bg-transparent py-0 pl-0 pr-5 text-xs text-muted focus:ring-1 focus:ring-line">
+                {BOARD_COLUMNS.map((c) => <option value={c} selected={c === col}>{c}</option>)}
+              </select>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  ))}
+</div>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-board]').forEach((board) => {
+    const recount = () =>
+      board.querySelectorAll<HTMLElement>('[data-column]').forEach((c) => {
+        c.querySelector('[data-count]')!.textContent = String(c.querySelectorAll('[data-card]').length);
+      });
+    const toTop = (list: Element, card: HTMLElement) => list.insertBefore(card as unknown as Node, list.firstChild);
+    const move = async (card: HTMLElement, status: string) => {
+      const from = card.closest<HTMLElement>('[data-column]')!;
+      const to = board.querySelector<HTMLElement>(`[data-column="${status}"] [data-cards]`)!;
+      if (from.dataset.column === status) return;
+      toTop(to, card);
+      (card.querySelector('[data-status]') as unknown as { value: string }).value = status;
+      card.querySelector('a')!.classList.toggle('line-through', status === 'Done');
+      card.querySelector('a')!.classList.toggle('text-muted', status === 'Done');
+      recount();
+      const res = await fetch('/api/tasks/status', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id: card.dataset.card, status }),
+      });
+      const r = res.ok ? ((await res.json()) as { done: boolean; date: string | null }) : null;
+      // Failed, or a repeating task that moved on instead of closing: put it back where it belongs.
+      if (!r) toTop(from.querySelector('[data-cards]')!, card);
+      else if (status === 'Done' && !r.done) {
+        toTop(from.querySelector('[data-cards]')!, card);
+        (card.querySelector('[data-status]') as unknown as { value: string }).value = from.dataset.column!;
+        card.querySelector('a')!.classList.remove('line-through', 'text-muted');
+      }
+      recount();
+    };
+    let dragged: HTMLElement | null = null;
+    board.addEventListener('dragstart', (e) => {
+      dragged = (e.target as HTMLElement).closest('[data-card]');
+      dragged?.classList.add('opacity-50');
+    });
+    board.addEventListener('dragend', () => {
+      dragged?.classList.remove('opacity-50');
+      board.querySelectorAll('[data-column]').forEach((c) => c.classList.remove('ring-2', 'ring-ink/20'));
+    });
+    board.addEventListener('dragover', (e) => {
+      const col = (e.target as HTMLElement).closest('[data-column]');
+      if (!col || !dragged) return;
+      e.preventDefault();
+      board.querySelectorAll('[data-column]').forEach((c) => c.classList.toggle('ring-2', c === col));
+      col.classList.add('ring-ink/20');
+    });
+    board.addEventListener('drop', (e) => {
+      const col = (e.target as HTMLElement).closest<HTMLElement>('[data-column]');
+      if (!col || !dragged) return;
+      e.preventDefault();
+      void move(dragged, col.dataset.column!);
+    });
+    board.addEventListener('change', (e) => {
+      const sel = (e.target as HTMLElement).closest('[data-status]') as unknown as { value: string; closest: (s: string) => HTMLElement | null } | null;
+      if (!sel) return;
+      const card = sel.closest('[data-card]');
+      if (card) void move(card, sel.value);
+    });
+  });
+</script>

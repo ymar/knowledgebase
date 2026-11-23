@@ -22,6 +22,7 @@ export const DEFAULT_TYPES: {
       { key: 'done', label: 'Done', kind: 'checkbox' },
       { key: 'date', label: 'Date', kind: 'date' },
       { key: 'deadline', label: 'Deadline', kind: 'date' },
+      { key: 'time', label: 'Time', kind: 'text' },
       { key: 'status', label: 'Status', kind: 'select', options: ['Not started', 'Next up', 'In progress', 'Blocked'] },
       { key: 'priority', label: 'Priority', kind: 'select', options: ['Low', 'Medium', 'High'] },
       { key: 'context', label: 'Context', kind: 'relation', multiple: true },

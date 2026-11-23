@@ -44,6 +44,7 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
     const parsed = parseTaskTitle(title, todayIn(requestTimeZone(request)));
     finalTitle = parsed.title;
     if (parsed.priority) properties.priority = parsed.priority;
+    if (parsed.time) properties.time = parsed.time;
     // A date word you typed wins over the page's date ("() Call bank friday" on today's note).
     if (parsed.date) date = parsed.date;
     const context = String(input.context ?? '');

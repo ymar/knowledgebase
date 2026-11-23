@@ -9,7 +9,11 @@ import {
   allTasks, completeTask, createObject, findDay, getBacklinks, getObject, getOrCreateDay, getSummaries,
   getTypeById, isTaskType, listObjectsByType, listTypes, listWorkspaces, pickedTags, saveContent,
   saveProperties, searchFullText, renameObject, taskTypeIdFor, tasksForDay, dateReferences,
+  createType, freeSlug, updateType, setTaskStatus,
 } from '../db';
+import { parseTypeForm, slugify, KINDS } from '../type-form';
+import { TYPE_COLORS, TYPE_ICONS } from '../icons';
+import { newId } from '../ulid';
 import type { Workspace } from '../db';
 import type { Block } from '../doc';
 import { toMarkdown } from '../markdown';
@@ -232,34 +236,117 @@ export function buildMcpServer(opts: { origin: string; timeZone: string }): McpS
     return text(`Updated "${title ?? o.title}". ${origin}/o/${id}`);
   }));
 
+  const propertySpec = z.object({
+    label: z.string().min(1).describe('Shown name, e.g. "Due"'),
+    kind: z.enum(Object.keys(KINDS) as [string, ...string[]]).describe('text, number, date, url, checkbox, select, multiselect or relation'),
+    options: z.array(z.string()).optional().describe('For select and multiselect'),
+    links_to: z.string().optional().describe('For relation: the type name it links to; omit for any type'),
+    multiple: z.boolean().optional().describe('For relation: may hold several objects'),
+  });
+
+  /** Writes a type's full property list through the type editor's parser (stable keys, validation). */
+  async function saveTypeDefinition(type: TypeRow, ws: string, extra: z.infer<typeof propertySpec>[], dailyNotes?: string) {
+    const all = await listTypes(ws, { includeDisabled: true });
+    const fd = new FormData();
+    fd.set('name', type.name);
+    fd.set('icon', type.icon);
+    fd.set('color', type.color);
+    const rows: { key: string; label: string; kind: string; options: string; target: string; multiple: string }[] = [
+      ...type.properties.map((p) => ({ key: p.key, label: p.label, kind: p.kind, options: (p.options ?? []).join(', '), target: p.target ?? '', multiple: p.multiple ? 'many' : 'one' })),
+      ...extra.map((p) => {
+        const target = p.links_to ? all.find((t) => t.name.toLowerCase() === p.links_to!.toLowerCase() || t.slug === p.links_to)?.slug : '';
+        if (p.links_to && !target) throw new Error(`No type "${p.links_to}" to link to in this workspace.`);
+        return { key: '', label: p.label, kind: p.kind, options: (p.options ?? []).join(', '), target: target ?? '', multiple: p.multiple ? 'many' : 'one' };
+      }),
+    ];
+    for (const r of rows) {
+      fd.append('p_key', r.key);
+      fd.append('p_label', r.label);
+      fd.append('p_kind', r.kind);
+      fd.append('p_options', r.options);
+      fd.append('p_target', r.target);
+      fd.append('p_multiple', r.multiple);
+    }
+    const parsed = parseTypeForm(fd, type.properties, new Set(all.map((t) => t.slug)));
+    // Daily notes: keep the current setting unless a date property label is given.
+    const dayProp = dailyNotes ? parsed.properties.find((p) => p.kind === 'date' && p.label.toLowerCase() === dailyNotes.toLowerCase()) : null;
+    if (dailyNotes && !dayProp) throw new Error(`"${dailyNotes}" isn't a date property of ${type.name}.`);
+    await updateType(type.id, { ...parsed, dayKey: dayProp ? dayProp.key : type.day_key });
+    return parsed.properties;
+  }
+
+  server.registerTool('create_type', {
+    title: 'Create an object type',
+    description: 'Creates a custom object type in a workspace (e.g. "Meeting", "Recipe") with its properties. Optionally pick a date property for daily notes ("+ Type" button and Date references).',
+    inputSchema: z.object({
+      name: z.string().min(1),
+      icon: z.enum(TYPE_ICONS as [string, ...string[]]).optional(),
+      color: z.enum(TYPE_COLORS as [string, ...string[]]).optional(),
+      properties: z.array(propertySpec).optional(),
+      daily_notes_property: z.string().optional().describe('Label of a date property to tie this type to daily notes'),
+      workspace: wsArg,
+    }),
+  }, safe(async ({ name, icon, color, properties, daily_notes_property, workspace }) => {
+    const ws = await resolveWorkspace(workspace);
+    const existing = (await listTypes(ws.id, { includeDisabled: true })).find((t) => t.name.toLowerCase() === name.trim().toLowerCase());
+    if (existing) throw new Error(`${ws.name} already has a type "${existing.name}". Use add_properties to extend it.`);
+    const base = slugify(name) || 'type';
+    const id = newId();
+    await createType({ id, workspaceId: ws.id, name: name.trim().slice(0, 60), slug: await freeSlug(base), icon: icon ?? 'file-text', color: color ?? TYPE_COLORS[0] });
+    const type = (await getTypeById(id))!;
+    const props = await saveTypeDefinition(type, ws.id, properties ?? [], daily_notes_property);
+    return text(`Created type "${type.name}" in ${ws.name}${props.length ? ` with ${props.map((p) => `${p.label} (${p.kind})`).join(', ')}` : ''}. ${origin}/types/${id}`);
+  }));
+
+  server.registerTool('add_properties', {
+    title: 'Add properties to a type',
+    description: 'Adds properties to an existing object type. Existing properties and stored values stay as they are.',
+    inputSchema: z.object({
+      type: z.string(),
+      properties: z.array(propertySpec).min(1),
+      daily_notes_property: z.string().optional(),
+      workspace: wsArg,
+    }),
+  }, safe(async ({ type, properties, daily_notes_property, workspace }) => {
+    const ws = await resolveWorkspace(workspace);
+    const t = await resolveType(ws.id, type);
+    if (t.workspace_id === null) throw new Error(`${t.name} is a shared system type; add properties in the app.`);
+    const dupes = properties.filter((p) => t.properties.some((x) => x.label.toLowerCase() === p.label.toLowerCase()));
+    if (dupes.length) throw new Error(`${t.name} already has: ${dupes.map((p) => p.label).join(', ')}`);
+    const props = await saveTypeDefinition(t, ws.id, properties, daily_notes_property);
+    return text(`${t.name} now has: ${props.map((p) => p.label).join(', ')}.`);
+  }));
+
   server.registerTool('list_tasks', {
     title: 'List tasks',
-    description: 'Tasks in a workspace: today (planned today or due/overdue), inbox (no date), scheduled (later), completed (recent).',
-    inputSchema: z.object({ section: z.enum(['today', 'inbox', 'scheduled', 'completed', 'all']).optional(), workspace: wsArg }),
+    description: 'Tasks in a workspace: today (planned today, due or overdue, in progress, done today), inbox (no date or status), scheduled (later), open (all open by priority), completed (recent).',
+    inputSchema: z.object({ section: z.enum(['today', 'inbox', 'scheduled', 'open', 'completed', 'all']).optional(), workspace: wsArg }),
     annotations: { readOnlyHint: true },
   }, safe(async ({ section, workspace }) => {
     const ws = await resolveWorkspace(workspace);
     if (!(await taskTypeIdFor(ws.id))) return text(`Tasks are turned off in ${ws.name}.`);
     const b = await allTasks(ws.id, today());
-    const fmt = (t: { title: string; id: string; date: string | null; deadline: string | null; priority: string | null; status: string | null; done: number }) =>
-      `- [${t.done ? 'x' : ' '}] ${t.title} (id ${t.id})${[t.priority && `priority ${t.priority}`, t.status && t.status, t.date && `date ${t.date}`, t.deadline && `deadline ${t.deadline}`].filter(Boolean).map((x) => `, ${x}`).join('')}`;
-    const parts: [string, typeof b.today][] = [['Today', b.today], ['Inbox', b.inbox], ['Scheduled', b.scheduled], ['Completed', b.done]];
+    const fmt = (t: { title: string; id: string; date: string | null; time: string | null; deadline: string | null; priority: string | null; status: string | null; repeat: string | null; done: number; sub_total: number; sub_done: number }) =>
+      `- [${t.done ? 'x' : ' '}] ${t.title} (id ${t.id})${[t.priority && `priority ${t.priority}`, t.status && t.status, t.date && `date ${t.date}${t.time ? ` ${t.time}` : ''}`, t.deadline && `deadline ${t.deadline}`, t.repeat && `repeats ${t.repeat.toLowerCase()}`, t.sub_total && `${t.sub_done}/${t.sub_total} subtasks`].filter(Boolean).map((x) => `, ${x}`).join('')}`;
+    const parts: [string, typeof b.today][] = [['Today', b.today], ['Inbox', b.inbox], ['Scheduled', b.scheduled], ['Open', b.open], ['Completed', b.done]];
     const pick = section && section !== 'all' ? parts.filter(([n]) => n.toLowerCase() === section) : parts;
     return text(pick.map(([n, rows]) => `## ${n}\n${rows.length ? rows.map(fmt).join('\n') : '_none_'}`).join('\n\n'));
   }));
 
   server.registerTool('create_task', {
     title: 'Create a task',
-    description: 'Creates a task. The title may hold "!", "!!", "!!!" for priority and a date word (today, tomorrow, a weekday, next week, YYYY-MM-DD). Optional explicit date/deadline, priority (Low/Medium/High) and context object ids.',
+    description: 'Creates a task. The title may hold "!", "!!", "!!!" for priority, a date word (today, tomorrow, a weekday, next week, YYYY-MM-DD) and a time (2pm, 14:00). Optional explicit date, time, deadline, priority (Low/Medium/High), status and context object ids.',
     inputSchema: z.object({
       title: z.string().min(1),
       date: z.string().optional(),
       deadline: z.string().optional(),
       priority: z.enum(['Low', 'Medium', 'High']).optional(),
+      time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional().describe('HH:MM'),
+      status: z.enum(['Not started', 'Next up', 'In progress', 'Blocked']).optional(),
       context_ids: z.array(z.string()).optional(),
       workspace: wsArg,
     }),
-  }, safe(async ({ title, date, deadline, priority, context_ids, workspace }) => {
+  }, safe(async ({ title, date, deadline, priority, time, status, context_ids, workspace }) => {
     const ws = await resolveWorkspace(workspace);
     const typeId = await taskTypeIdFor(ws.id);
     if (!typeId) throw new Error(`Tasks are turned off in ${ws.name}.`);
@@ -270,10 +357,23 @@ export function buildMcpServer(opts: { origin: string; timeZone: string }): McpS
     if (d) values.date = d;
     if (deadline && isIsoDay(deadline)) values.deadline = deadline;
     if (priority ?? parsed.priority) values.priority = priority ?? parsed.priority;
+    if (time ?? parsed.time) values.time = time ?? parsed.time;
+    if (status) values.status = status;
     if (context_ids?.length) values.context = context_ids;
     const id = await createObject({ workspaceId: ws.id, typeId, title: parsed.title });
     await saveProperties(id, t.properties, coerceProperties(t.properties, values));
     return text(`Created task "${parsed.title}" (id ${id})${d ? ` for ${d}` : ' in the inbox'}. ${origin}/o/${id}`);
+  }));
+
+  server.registerTool('set_task_status', {
+    title: 'Set a task status',
+    description: 'Moves a task to a status (Not started, Next up, In progress, Blocked, Done), like the board. Done ticks it.',
+    inputSchema: z.object({ id: z.string(), status: z.enum(['Not started', 'Next up', 'In progress', 'Blocked', 'Done']) }),
+  }, safe(async ({ id, status }) => {
+    const o = await getObject(id);
+    if (!o || !isTaskType(o.type_id)) throw new Error(`No task with id ${id}`);
+    const r = await setTaskStatus(id, status, today());
+    return text(status === 'Done' && !r.done && r.date ? `"${o.title}" repeats; next on ${r.date}.` : `"${o.title}" is now ${status}.`);
   }));
 
   server.registerTool('complete_task', {

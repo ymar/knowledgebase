@@ -58,10 +58,25 @@ const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'frida
  * date word (today, tomorrow, a weekday, "next week", YYYY-MM-DD). The tokens are removed
  * from the title. Unknown text is left alone.
  */
-export function parseTaskTitle(raw: string, today: string): { title: string; priority?: string; date?: string } {
+export function parseTaskTitle(raw: string, today: string): { title: string; priority?: string; date?: string; time?: string } {
   let title = ` ${raw} `;
   let priority: string | undefined;
   let date: string | undefined;
+  let time: string | undefined;
+
+  // A time: "2pm", "9:30am", "14:00", "at 14:00".
+  const tm = title.match(/\s(?:at\s)?(\d{1,2})(?::(\d{2}))?\s?(am|pm)(?=\s)/i) ?? title.match(/\s(?:at\s)?([01]?\d|2[0-3]):([0-5]\d)(?=\s)/);
+  if (tm) {
+    let h = Number(tm[1]);
+    const m = Number(tm[2] ?? 0);
+    const ap = tm[3]?.toLowerCase();
+    if (ap === 'pm' && h < 12) h += 12;
+    if (ap === 'am' && h === 12) h = 0;
+    if (h <= 23 && m <= 59) {
+      time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+      title = title.replace(tm[0], ' ');
+    }
+  }
 
   const p = title.match(/\s(!{1,3})(?=\s)/);
   if (p) {
@@ -95,7 +110,9 @@ export function parseTaskTitle(raw: string, today: string): { title: string; pri
     title = title.replace(m[0], ' ');
     break;
   }
-  return { title: title.replace(/\s+/g, ' ').trim() || raw.trim(), priority, date };
+  // A time without a day means today.
+  if (time && !date) date = today;
+  return { title: title.replace(/\s+/g, ' ').trim() || raw.trim(), priority, date, time };
 }
 
 export const PRIORITY_RANK: Record<string, number> = { High: 0, Medium: 1, Low: 2 };

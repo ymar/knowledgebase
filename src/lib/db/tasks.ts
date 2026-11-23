@@ -16,6 +16,10 @@ export interface TaskRow extends ObjectSummary {
   /** JSON array (or single id) of linked context objects. */
   context: string | null;
   done_at: string | null;
+  time: string | null;
+  /** Checkboxes in the task's own note (subtasks), for the progress ring. */
+  sub_total: number;
+  sub_done: number;
 }
 
 const SELECT = `
@@ -28,11 +32,15 @@ const SELECT = `
          json_extract(o.properties, '$.status') AS status,
          json_extract(o.properties, '$.repeat') AS repeat,
          json_extract(o.properties, '$.context') AS context,
-         json_extract(o.properties, '$.done_at') AS done_at
+         json_extract(o.properties, '$.done_at') AS done_at,
+         json_extract(o.properties, '$.time') AS time,
+         (SELECT COUNT(*) FROM json_tree(o.content) j WHERE j.key = 'type' AND j.value = 'checkListItem') AS sub_total,
+         (SELECT COUNT(*) FROM json_tree(o.content) j WHERE j.key = 'checked' AND j.value = 1) AS sub_done
   FROM objects o JOIN types t ON t.id = o.type_id`;
 
-/** Within a group: deadlines first, then priority (High, Medium, Low, none), then age. */
-const ORDER = `(json_extract(o.properties, '$.deadline') IS NULL),
+/** Within a group: timed first (by time), then deadlines, then priority (High, Medium, Low, none), then age. */
+const ORDER = `(json_extract(o.properties, '$.time') IS NULL), json_extract(o.properties, '$.time'),
+  (json_extract(o.properties, '$.deadline') IS NULL),
   CASE json_extract(o.properties, '$.priority') WHEN 'High' THEN 0 WHEN 'Medium' THEN 1 WHEN 'Low' THEN 2 ELSE 3 END,
   o.created_at`;
 
@@ -128,13 +136,19 @@ export interface TaskBuckets {
   today: TaskRow[];
   /** Planned or due on another day, oldest first (overdue at the top). */
   scheduled: TaskRow[];
+  /** Every open task, by priority. */
+  open: TaskRow[];
   done: TaskRow[];
 }
 
+/** A status counts as "triaged" unless it's empty or "Not started". */
+const triaged = (s: string | null) => !!s && s !== 'Not started';
+
 /**
  * Every task of a workspace, in the sections Capacities uses on its Tasks view:
- * Inbox (open, no date and no deadline), Today (planned today, or deadline today or passed),
- * Scheduled (open, planned or due another day; overdue first), Completed (20 most recent).
+ * Inbox (open, no date, no deadline and no status yet), Today (planned today, deadline today or
+ * passed, In progress, or done today), Scheduled (open, another day; overdue first),
+ * Open (all open, by priority), Completed (20 most recent).
  */
 export async function allTasks(ws: string, today: string): Promise<TaskBuckets> {
   const d = db();
@@ -145,15 +159,54 @@ export async function allTasks(ws: string, today: string): Promise<TaskBuckets> 
                LIMIT 500`).bind(ws),
     d.prepare(`${SELECT} WHERE o.workspace_id = ? AND o.deleted_at IS NULL AND ${TASK_TYPE_SQL}
                AND COALESCE(json_extract(o.properties, '$.done'), 0) = 1
-               ORDER BY o.updated_at DESC LIMIT 20`).bind(ws),
+               ORDER BY COALESCE(json_extract(o.properties, '$.done_at'), '') DESC, o.updated_at DESC LIMIT 50`).bind(ws),
   ]);
-  const b: TaskBuckets = { inbox: [], today: [], scheduled: [], done: done.results as TaskRow[] };
+  const doneRows = done.results as TaskRow[];
+  const b: TaskBuckets = { inbox: [], today: [], scheduled: [], open: [], done: doneRows.slice(0, 20) };
+  const rank = (t: TaskRow) => ({ High: 0, Medium: 1, Low: 2 } as Record<string, number>)[t.priority ?? ''] ?? 3;
   for (const t of open.results as TaskRow[]) {
-    if (!t.date && !t.deadline) b.inbox.push(t);
-    else if (t.date === today || (t.deadline && t.deadline <= today)) b.today.push(t);
-    else b.scheduled.push(t);
+    b.open.push(t);
+    if (t.date === today || (t.deadline && t.deadline <= today) || (t.date && t.date < today) || t.status === 'In progress') b.today.push(t);
+    else if (!t.date && !t.deadline && !triaged(t.status)) b.inbox.push(t);
+    else if (t.date || t.deadline) b.scheduled.push(t);
   }
+  b.open.sort((x, y) => rank(x) - rank(y));
+  // Today also shows what you finished today.
+  b.today.push(...doneRows.filter((t) => t.done_at === today));
   return b;
+}
+
+export const BOARD_COLUMNS = ['Not started', 'Next up', 'In progress', 'Blocked', 'Done'] as const;
+
+/** Tasks for a status board, optionally only those with `contextId` as Context. Done = 30 most recent. */
+export async function taskBoard(ws: string, contextId?: string): Promise<Record<(typeof BOARD_COLUMNS)[number], TaskRow[]>> {
+  const ctx = contextId ? `AND EXISTS (SELECT 1 FROM json_each(o.properties, '$.context') c WHERE c.value = ?)` : '';
+  const args = contextId ? [ws, contextId] : [ws];
+  const d = db();
+  const [open, done] = await d.batch([
+    d.prepare(`${SELECT} WHERE o.workspace_id = ? AND o.deleted_at IS NULL AND ${TASK_TYPE_SQL} ${ctx}
+               AND COALESCE(json_extract(o.properties, '$.done'), 0) = 0 ORDER BY ${ORDER} LIMIT 500`).bind(...args),
+    d.prepare(`${SELECT} WHERE o.workspace_id = ? AND o.deleted_at IS NULL AND ${TASK_TYPE_SQL} ${ctx}
+               AND COALESCE(json_extract(o.properties, '$.done'), 0) = 1 ORDER BY o.updated_at DESC LIMIT 30`).bind(...args),
+  ]);
+  const cols = Object.fromEntries(BOARD_COLUMNS.map((c) => [c, [] as TaskRow[]])) as Record<(typeof BOARD_COLUMNS)[number], TaskRow[]>;
+  for (const t of open.results as TaskRow[]) {
+    const s = (BOARD_COLUMNS as readonly string[]).includes(t.status ?? '') && t.status !== 'Done' ? (t.status as (typeof BOARD_COLUMNS)[number]) : 'Not started';
+    cols[s].push(t);
+  }
+  cols.Done = done.results as TaskRow[];
+  return cols;
+}
+
+/** Moves a task to a board column: sets Status, and Done ticks it (recurrence applies). */
+export async function setTaskStatus(id: string, status: string, today: string): Promise<{ done: boolean; date: string | null }> {
+  const d = db();
+  const row = await d.prepare(`SELECT COALESCE(json_extract(properties, '$.done'), 0) AS done FROM objects WHERE id = ? AND deleted_at IS NULL`).bind(id).first<{ done: number }>();
+  if (!row) throw new Error('Not found');
+  if (status === 'Done') return completeTask(id, true, today);
+  await d.prepare(`UPDATE objects SET properties = json_set(properties, '$.status', ?), updated_at = ? WHERE id = ?`).bind(status, nowIso(), id).run();
+  if (row.done) return completeTask(id, false, today);
+  return { done: false, date: null };
 }
 
 /** The workspace's Task type id, if it exists and is on. */

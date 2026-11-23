@@ -1,44 +1,88 @@
 ---
 import Base from '../layouts/Base.astro';
 import TaskList from '../components/TaskList.astro';
+import TaskBoard from '../components/TaskBoard.astro';
 import DatePicker from '../components/DatePicker.astro';
 import Icon from '../components/Icon.astro';
-import { allTasks, taskTypeIdFor } from '../lib/db';
+import { allTasks, getTypeById, listViews, taskBoard, taskTypeIdFor } from '../lib/db';
 import { requestTimeZone, todayIn } from '../lib/format';
+import { specToQuery } from '../lib/view-results';
 
 const ws = Astro.locals.workspace;
 const today = todayIn(requestTimeZone(Astro.request));
 const typeId = await taskTypeIdFor(ws.id);
-const t = typeId ? await allTasks(ws.id, today) : null;
-const open = t ? t.inbox.length + t.today.length + t.scheduled.length : 0;
+const TABS = [['today', 'Today'], ['inbox', 'Inbox'], ['scheduled', 'Scheduled'], ['open', 'Open'], ['board', 'Board'], ['completed', 'Completed']] as const;
+type Tab = (typeof TABS)[number][0];
+const tabParam = Astro.url.searchParams.get('tab');
+const tab: Tab = (TABS.find(([k]) => k === tabParam)?.[0] ?? 'today') as Tab;
+
+const [t, board, taskType, views] = typeId
+  ? await Promise.all([allTasks(ws.id, today), tab === 'board' ? taskBoard(ws.id) : null, getTypeById(typeId), listViews(typeId)])
+  : [null, null, null, []];
+const counts: Record<Tab, number | null> = t
+  ? { today: t.today.filter((x) => !x.done).length, inbox: t.inbox.length, scheduled: t.scheduled.length, open: t.open.length, board: null, completed: null }
+  : { today: null, inbox: null, scheduled: null, open: null, board: null, completed: null };
+
 // Scheduled: one group per day (the planned date, else the deadline), overdue days first.
 const dayOf = (x: { date: string | null; deadline: string | null }) => x.date ?? x.deadline ?? '';
-const byDay = new Map<string, typeof t extends null ? never : NonNullable<typeof t>['scheduled']>();
+const byDay = new Map<string, NonNullable<typeof t>['scheduled']>();
 for (const x of t?.scheduled ?? []) byDay.set(dayOf(x), [...(byDay.get(dayOf(x)) ?? []), x]);
 const label = (iso: string) =>
   `${iso < today ? 'Overdue · ' : ''}${new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`))}`;
 const scheduledGroups = [...byDay].map(([day, items]) => ({ key: `day-${day}`, label: label(day), items }));
+const empty: Record<Tab, string> = {
+  today: 'Nothing for today. Enjoy it, or pull something from the Inbox.',
+  inbox: 'Inbox zero. New tasks without a date or status land here.',
+  scheduled: 'Nothing scheduled for later.',
+  open: 'No open tasks.',
+  board: '',
+  completed: 'Nothing completed yet.',
+};
 ---
-<Base title="Tasks" activeTypeId={typeId ?? undefined}>
+<Base title="Tasks" activeTypeId={typeId ?? undefined} wide={tab === 'board'}>
   <h1 class="text-3xl font-bold tracking-tight md:text-4xl">Tasks</h1>
   {!typeId ? (
     <p class="mt-4 text-muted">The Task type is off in this workspace. Turn it on in <a href="/types" class="underline underline-offset-2">Types</a>.</p>
   ) : (
     <>
-      <p class="mt-2 text-muted">{open} open in {ws.name}</p>
       <form method="post" action="/api/objects" class="mt-6 flex flex-wrap gap-2">
         <input type="hidden" name="typeId" value={typeId} />
         <input type="hidden" name="workspaceId" value={ws.id} />
-        <input type="hidden" name="back" value="/tasks" />
-        <input name="title" required autocomplete="off" placeholder="New task…" aria-label="New task" class="field min-w-0 flex-1" data-new-object />
+        <input type="hidden" name="back" value={`/tasks?tab=${tab}`} />
+        <input name="title" required autocomplete="off" placeholder="New task… try “Call Julie !! friday 2pm”" aria-label="New task" class="field min-w-0 flex-1" data-new-object />
         <DatePicker mode="field" name="date" value="" today={today} label="Planned for" placeholder="No date" class="w-44" />
         <button class="btn-primary" type="submit"><Icon name="plus" size={16} /> <span class="hidden sm:inline">Add</span></button>
       </form>
-      <TaskList today={today} always heading="Today" groups={[{ key: 'today', label: 'Today', items: t!.today }]} />
-      <TaskList today={today} heading="Inbox" groups={[{ key: 'inbox', label: 'No date yet', items: t!.inbox }]} />
-      <TaskList today={today} heading="Scheduled" groups={scheduledGroups} />
-      <TaskList today={today} heading="Completed" groups={[{ key: 'done', label: 'Most recent', items: t!.done }]} />
-      {open === 0 && t!.done.length === 0 && <p class="mt-8 text-sm text-muted">No tasks yet. Add one above, or type /task on a line in any note.</p>}
+
+      <nav aria-label="Task views" class="mt-6 flex gap-1 overflow-x-auto rounded-lg bg-panel p-1 text-sm">
+        {TABS.map(([key, name]) => (
+          <a href={`/tasks?tab=${key}`} aria-current={tab === key ? 'page' : undefined}
+            class="shrink-0 rounded-md px-2.5 py-1 text-muted hover:text-ink aria-[current=page]:bg-card aria-[current=page]:text-ink aria-[current=page]:shadow-xs">
+            {name}{counts[key] ? <span class="ml-1.5 tabular-nums text-muted">{counts[key]}</span> : null}
+          </a>
+        ))}
+        {views.map((v) => (
+          <a href={`/t/${taskType!.slug}?${specToQuery(v.spec)}&sv=${v.id}`} class="shrink-0 rounded-md px-2.5 py-1 text-muted hover:text-ink" title="Saved view">
+            {v.name}
+          </a>
+        ))}
+      </nav>
+
+      {tab === 'board' && board && <TaskBoard columns={board} today={today} />}
+      {tab === 'today' && <TaskList today={today} always heading="" groups={[{ key: 'today', label: 'Today', items: t!.today }]} />}
+      {tab === 'inbox' && <TaskList today={today} always heading="" groups={[{ key: 'inbox', label: 'Inbox', items: t!.inbox }]} />}
+      {tab === 'scheduled' && <TaskList today={today} always heading="" groups={scheduledGroups} />}
+      {tab === 'open' && <TaskList today={today} always heading="" groups={[{ key: 'open', label: 'Open', items: t!.open }]} />}
+      {tab === 'completed' && <TaskList today={today} always heading="" groups={[{ key: 'done', label: 'Completed', items: t!.done }]} />}
+      {tab !== 'board' && (
+        (tab === 'today' && t!.today.length === 0) || (tab === 'inbox' && t!.inbox.length === 0) ||
+        (tab === 'scheduled' && t!.scheduled.length === 0) || (tab === 'open' && t!.open.length === 0) ||
+        (tab === 'completed' && t!.done.length === 0)
+      ) && <p class="mt-6 text-sm text-muted">{empty[tab]}</p>}
+      <p class="mt-8 text-xs text-muted">
+        Tip: <kbd>⌘⇧T</kbd> adds a task from anywhere. In a note, start a line with <kbd>()</kbd>. Save a filtered view of{" "}
+        <a href={`/t/${taskType!.slug}`} class="underline underline-offset-2">all tasks</a> to add it here as a tab.
+      </p>
     </>
   )}
 </Base>

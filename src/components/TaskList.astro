@@ -88,6 +88,16 @@ const openToMove = moveOpen
                     {prio && <span class:list={['shrink-0 text-xs font-bold', prio.cls]} title={`${t.priority} priority`}>{prio.marks}</span>}
                     <a href={`/o/${t.id}`} class="truncate text-[15px] hover:underline" data-title>{t.title || 'Untitled'}</a>
                     {t.repeat && <span class="shrink-0 text-xs text-muted" title={`Repeats ${t.repeat.toLowerCase()}`} aria-label={`Repeats ${t.repeat.toLowerCase()}`}>↻</span>}
+                    {t.sub_total > 0 && (
+                      <span class="inline-flex shrink-0 items-center gap-1 text-xs tabular-nums text-muted" title={`${t.sub_done} of ${t.sub_total} subtasks done`}>
+                        <svg width="14" height="14" viewBox="0 0 36 36" aria-hidden="true">
+                          <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" stroke-opacity=".25" stroke-width="5" />
+                          <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"
+                            stroke-dasharray={`${(94.2 * t.sub_done) / t.sub_total} 94.2`} transform="rotate(-90 18 18)" />
+                        </svg>
+                        {t.sub_done}/{t.sub_total}
+                      </span>
+                    )}
                   </span>
                   {ctx.length > 0 && (
                     <span class="mt-0.5 flex flex-wrap gap-x-2 text-xs text-muted">
@@ -97,6 +107,9 @@ const openToMove = moveOpen
                 </span>
                 {t.status && t.status !== 'Not started' && !t.done && (
                   <span class:list={['shrink-0 rounded-md px-1.5 py-0.5 text-xs', t.status === 'Blocked' ? 'bg-red-500/10 text-red-600' : t.status === 'In progress' ? 'bg-sky-500/10 text-sky-700' : 'bg-panel text-muted']}>{t.status}</span>
+                )}
+                {t.time && !t.done && (
+                  <span class="shrink-0 rounded-md bg-panel px-1.5 py-0.5 text-xs tabular-nums text-muted">{t.time}</span>
                 )}
                 {t.deadline && (
                   <span class:list={['shrink-0 rounded-md px-1.5 py-0.5 text-xs', late ? 'bg-red-500/10 text-red-600' : t.deadline === today && !t.done ? 'bg-amber-500/10 text-amber-700' : 'bg-panel text-muted']}>

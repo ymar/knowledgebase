@@ -8,9 +8,10 @@ import TaggedList from '../../components/TaggedList.astro';
 import Snippet from '../../components/Snippet.astro';
 import Editor from '../../components/react/Editor';
 import TaskList from '../../components/TaskList.astro';
+import TaskBoard from '../../components/TaskBoard.astro';
 import { requestTimeZone, todayIn } from '../../lib/format';
 import {
-  allTags, collectionsOf, listCollections, listRecent, tasksForObject, taskTypeIdFor, getTypeById, getTypeBySlug, getObject, listObjectsByType, listTypes, markOpened, pickedTags,
+  allTags, collectionsOf, listCollections, listRecent, taskBoard, tasksForObject, taskTypeIdFor, getTypeById, getTypeBySlug, getObject, listObjectsByType, listTypes, markOpened, pickedTags,
 } from '../../lib/db';
 import { editorProps } from '../../lib/editor-props';
 import { isTaskType } from '../../lib/db/tasks';
@@ -53,6 +54,9 @@ for (const d of type.properties) {
 const today = todayIn(requestTimeZone(Astro.request));
 const taskTypeId = await taskTypeIdFor(object.workspace_id);
 const contextTasks = isTaskType(type.id) || !taskTypeId ? [] : await tasksForObject(object.workspace_id, object.id);
+// Tasks for this object as a list (default) or a status board (?tasks=board), like Capacities' Tasks tab.
+const tasksAsBoard = Astro.url.searchParams.get('tasks') === 'board';
+const contextBoard = tasksAsBoard && taskTypeId && contextTasks.length ? await taskBoard(object.workspace_id, object.id) : null;
 const [{ refs, types }, allTypes, tags, tagOptions, unlinked, inCollections, typeCollections] = await Promise.all([
   editorProps(object.workspace_id, object.content),
   listTypes(object.workspace_id),
@@ -188,7 +192,23 @@ const notice = Astro.url.searchParams.get('notice');
 
   {!isTaskType(type.id) && taskTypeId && (
     <section aria-label="Tasks for this" class="mt-12">
-      <TaskList today={today} heading="Tasks" always groups={[{ key: 'ctx', label: 'Tasks', items: contextTasks }]} hideContext={object.id} />
+      {contextTasks.length > 0 && (
+        <div class="-mb-6 flex justify-end">
+          <div class="flex gap-1 rounded-lg bg-panel p-1 text-xs" role="group" aria-label="Show tasks as">
+            <a href={`/o/${object.id}`} aria-current={!tasksAsBoard ? 'true' : undefined} class="rounded-md px-2 py-0.5 text-muted aria-[current=true]:bg-card aria-[current=true]:text-ink">List</a>
+            <a href={`/o/${object.id}?tasks=board#tasks`} aria-current={tasksAsBoard ? 'true' : undefined} class="rounded-md px-2 py-0.5 text-muted aria-[current=true]:bg-card aria-[current=true]:text-ink">Board</a>
+          </div>
+        </div>
+      )}
+      <span id="tasks"></span>
+      {contextBoard ? (
+        <>
+          <h2 class="eyebrow mt-8">Tasks</h2>
+          <TaskBoard columns={contextBoard} today={today} />
+        </>
+      ) : (
+        <TaskList today={today} heading="Tasks" always groups={[{ key: 'ctx', label: 'Tasks', items: contextTasks }]} hideContext={object.id} />
+      )}
       <form method="post" action="/api/objects" class="mt-2 flex gap-2">
         <input type="hidden" name="typeId" value={taskTypeId} />
         <input type="hidden" name="workspaceId" value={object.workspace_id} />

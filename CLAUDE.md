@@ -99,9 +99,15 @@ Do not copy Capacities assets, icons, logo or wording.
   survive. Inline title syntax for new tasks: `!`..`!!!` and today/tomorrow/weekday/next week/YYYY-MM-DD (a typed
   date word wins over the page's date). Shortcuts: `() title` + Enter in the editor, Cmd/Ctrl+Shift+T anywhere.
   Today's note offers "Move open to tomorrow / Monday". Objects show a Tasks section for tasks with them as Context.
+- Task views (Capacities' task page): `/tasks` has tabs Today (planned today, due/overdue, In progress, done today),
+  Inbox (no date, deadline or status), Scheduled, Open (by priority), Board, Completed, plus the Task type's saved
+  views. Board (`TaskBoard.astro`): columns by Status, drag or per-card select, `POST /api/tasks/status`; Done ticks
+  (repeating tasks move on). Objects' Tasks section toggles List/Board (`?tasks=board`). Time (migration 0013, "2pm",
+  "14:00") sorts Today. Subtasks = checkboxes in a task's note, counted with `json_tree` (progress ring).
+  Sidebar Tasks has a "+" (`[data-quick-task]`) that opens the palette in task mode.
 - MCP server at `/mcp` (`src/lib/mcp/server.ts`, MCP SDK v2 `createMcpHandler`, stateless). Tools: list_workspaces,
   list_types, search, get_object, list_objects, get_daily_note, append_to_daily_note, create_object, update_object,
-  list_tasks, create_task, complete_task. No deletes. Markdown in, via `src/lib/from-markdown.ts` ([[Title]] links).
+  create_type, add_properties, list_tasks, create_task, set_task_status, complete_task. No deletes. Markdown in, via `src/lib/from-markdown.ts` ([[Title]] links).
   Auth: Cloudflare Access with Managed OAuth; vars ACCESS_TEAM_DOMAIN, ACCESS_AUD, TIMEZONE in wrangler.jsonc.
 - `astro dev` runs as a managed background process: stop it with `npx astro dev stop` before `db:reset`.
 

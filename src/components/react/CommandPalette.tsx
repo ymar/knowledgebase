@@ -113,6 +113,12 @@ export default function CommandPalette({
       }
     };
     const onClick = (e: MouseEvent) => {
+      if ((e.target as Element).closest?.('[data-quick-task]') && taskTypeId) {
+        e.preventDefault();
+        setTaskMode(true);
+        show();
+        return;
+      }
       if ((e.target as Element).closest?.('[data-open-palette]')) {
         e.preventDefault();
         show();
