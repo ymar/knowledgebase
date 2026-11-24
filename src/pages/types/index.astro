@@ -2,7 +2,7 @@
 import Base from '../../layouts/Base.astro';
 import TypeTile from '../../components/TypeTile.astro';
 import Icon from '../../components/Icon.astro';
-import { countByType, isSystemType, listTypes } from '../../lib/db';
+import { countByType, listTypes } from '../../lib/db';
 
 const ws = Astro.locals.workspace;
 const [types, counts] = await Promise.all([listTypes(ws.id, { includeDisabled: true }), countByType(ws.id)]);
@@ -51,9 +51,7 @@ const error = Astro.url.searchParams.get('error');
               </span>
             </a>
             <span class="text-xs tabular-nums text-muted">{counts[t.id] ?? 0}</span>
-            {isSystemType(t) ? (
-              <span class="w-[4.5rem] text-right text-xs text-muted">Always on</span>
-            ) : (
+            {(
               <form method="post" action={`/api/types/${t.id}`}>
                 <input type="hidden" name="_action" value={t.enabled ? 'disable' : 'enable'} />
                 <button type="submit" role="switch" aria-checked={t.enabled ? 'true' : 'false'} aria-label={`${t.name} ${t.enabled ? 'on' : 'off'}`}

@@ -63,7 +63,9 @@ Do not copy Capacities assets, icons, logo or wording.
   their own starter copies (`src/lib/default-types.ts`) in the same batch that creates them. Objects can
   only be created with, or changed to, a type that belongs to their workspace and is on. Turned-off types
   vanish from the sidebar and create menus; their objects stay in search, links and backlinks.
-  Opening a type page from another workspace switches to it.
+  Opening a type page from another workspace switches to it. Day and Tag can be switched off per workspace: a
+  "-<type id>" entry in `workspaces.type_order` (no schema; `setSystemTypeEnabled`, `moveType` keeps the markers).
+  Off only hides them from the sidebar and menus; daily notes and # tags keep working.
 - Type order is per workspace (migration 0008): `workspaces.type_order` is a JSON array of type ids, read
   with `json_each` in `listTypes`; unlisted types follow by `sort_order`. Day and Tag are ordered per workspace too.
 - Dates are picked with `src/components/DatePicker.astro` (own calendar, Monday-first, keyboard: arrows,
@@ -263,7 +265,7 @@ Ranked by value for daily use. SCHEMA items need the SQL approved first.
 - [x] **N8 Calendar depth**: a time property and times on scheduled objects; week and month views;
       a "reviewed" mark on daily notes.
 - [x] **N9 Icons/covers** and quick capture.
-- [ ] **Small**: move an object to another workspace [done]; Day/Tag switchable per workspace; date picker in the
+- [ ] **Small**: move an object to another workspace [done]; Day/Tag switchable per workspace [done]; date picker in the
       filter row [done]; "+ Type" buttons on other object pages [done].
 
 ### Follow-ups from the Capacities docs (tasks, queries, collections, bulk actions)

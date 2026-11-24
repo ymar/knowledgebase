@@ -14,7 +14,11 @@ const hydrate = (r: RawType): TypeRow => ({
   enabled: r.enabled === 1,
 });
 
-/** System types (Day, Tag) are shared by every workspace and always on. */
+/**
+ * System types (Day, Tag) are shared by every workspace. Each workspace can switch them off for its
+ * sidebar and menus: a "-<type id>" entry in `workspaces.type_order` (ordering ignores it). Their
+ * objects keep working (daily notes, # tags), like any turned-off type's objects.
+ */
 export const isSystemType = (t: Pick<TypeRow, 'workspace_id'>): boolean => t.workspace_id === null;
 
 /**
@@ -25,14 +29,27 @@ export const isSystemType = (t: Pick<TypeRow, 'workspace_id'>): boolean => t.wor
 export async function listTypes(ws: string, opts: { includeDisabled?: boolean } = {}): Promise<TypeRow[]> {
   const { results } = await db()
     .prepare(
-      `SELECT t.* FROM types t JOIN workspaces w ON w.id = ?
-       WHERE (t.workspace_id = w.id OR t.workspace_id IS NULL) ${opts.includeDisabled ? '' : 'AND t.enabled = 1'}
-       ORDER BY COALESCE((SELECT CAST(j.key AS INTEGER) FROM json_each(w.type_order) j WHERE j.value = t.id), 1000 + t.sort_order),
+      `SELECT * FROM (
+         SELECT t.*, (t.workspace_id IS NULL AND EXISTS (SELECT 1 FROM json_each(w.type_order) j WHERE j.value = '-' || t.id)) AS sys_off,
+                w.type_order AS ws_order
+         FROM types t JOIN workspaces w ON w.id = ?
+         WHERE (t.workspace_id = w.id OR t.workspace_id IS NULL)
+       ) t
+       WHERE 1 ${opts.includeDisabled ? '' : 'AND t.enabled = 1 AND NOT t.sys_off'}
+       ORDER BY COALESCE((SELECT CAST(j.key AS INTEGER) FROM json_each(t.ws_order) j WHERE j.value = t.id), 1000 + t.sort_order),
                 t.name`,
     )
     .bind(ws)
-    .all<RawType>();
-  return results.map(hydrate);
+    .all<RawType & { sys_off: number; ws_order?: string }>();
+  return results.map(({ sys_off, ws_order: _o, ...r }) => ({ ...hydrate(r), enabled: r.enabled === 1 && !sys_off }));
+}
+
+/** Switches a system type (Day, Tag) on or off in one workspace. */
+export async function setSystemTypeEnabled(ws: string, typeId: string, enabled: boolean): Promise<void> {
+  const row = await db().prepare('SELECT type_order FROM workspaces WHERE id = ?').bind(ws).first<{ type_order: string }>();
+  const order = parseJson<string[]>(row?.type_order, []).filter((v) => v !== `-${typeId}`);
+  if (!enabled) order.push(`-${typeId}`);
+  await db().prepare('UPDATE workspaces SET type_order = ? WHERE id = ?').bind(JSON.stringify(order), ws).run();
 }
 
 /** Moves a type one place up or down in a workspace's order. Stores the full order. */
@@ -42,7 +59,10 @@ export async function moveType(ws: string, typeId: string, dir: -1 | 1): Promise
   const j = i + dir;
   if (i === -1 || j < 0 || j >= ids.length) return;
   [ids[i], ids[j]] = [ids[j], ids[i]];
-  await db().prepare('UPDATE workspaces SET type_order = ? WHERE id = ?').bind(JSON.stringify(ids), ws).run();
+  // Keep the "-<id>" off-markers of system types.
+  const row = await db().prepare('SELECT type_order FROM workspaces WHERE id = ?').bind(ws).first<{ type_order: string }>();
+  const off = parseJson<string[]>(row?.type_order, []).filter((v) => v.startsWith('-'));
+  await db().prepare('UPDATE workspaces SET type_order = ? WHERE id = ?').bind(JSON.stringify([...ids, ...off]), ws).run();
 }
 
 /** True when objects of `type` may live in workspace `ws`. */

@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { countAllOfType, deleteType, getTypeById, isSystemType, listTypes, moveType, setTypeEnabled, updateType } from '../../../lib/db';
+import { countAllOfType, deleteType, getTypeById, isSystemType, listTypes, moveType, setSystemTypeEnabled, setTypeEnabled, updateType } from '../../../lib/db';
 import { parseTypeForm } from '../../../lib/type-form';
 
 export const POST: APIRoute = async ({ params, request, redirect, locals }) => {
@@ -15,7 +15,8 @@ export const POST: APIRoute = async ({ params, request, redirect, locals }) => {
     return redirect(`/types#type-${type.id}`, 303);
   }
   if (action === 'enable' || action === 'disable') {
-    if (!isSystemType(type)) await setTypeEnabled(type.id, action === 'enable');
+    if (isSystemType(type)) await setSystemTypeEnabled(locals.workspace.id, type.id, action === 'enable');
+    else await setTypeEnabled(type.id, action === 'enable');
     const back = request.headers.get('referer');
     return redirect(back && new URL(back).pathname.startsWith('/t/') ? new URL(back).pathname : '/types', 303);
   }
