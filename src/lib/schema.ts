@@ -50,6 +50,8 @@ export interface ObjectRow {
   opened_at: string | null;
   workspace_id: string;
   pinned_at: string | null;
+  /** Other names, one per line. */
+  aliases: string;
 }
 
 /** Light row for lists, search results, pickers. */
@@ -62,6 +64,8 @@ export interface ObjectSummary {
   type_slug: string;
   type_icon: string;
   type_color: string;
+  /** Other names, one per line (search results only). */
+  aliases?: string;
 }
 
 export type LinkOrigin = 'content' | 'tag' | 'property';

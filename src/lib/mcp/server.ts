@@ -9,7 +9,7 @@ import {
   allTasks, completeTask, createObject, findDay, getBacklinks, getObject, getOrCreateDay, getSummaries,
   getTypeById, isTaskType, listObjectsByType, listTypes, listWorkspaces, pickedTags, saveContent,
   saveProperties, searchFullText, renameObject, taskTypeIdFor, tasksForDay, dateReferences,
-  createType, freeSlug, updateType, setTaskStatus,
+  createType, freeSlug, updateType, setTaskStatus, setAliases, splitAliases,
 } from '../db';
 import { parseTypeForm, slugify, KINDS } from '../type-form';
 import { TYPE_COLORS, TYPE_ICONS } from '../icons';
@@ -76,6 +76,7 @@ async function describeObject(id: string, origin: string): Promise<string> {
   const lines = [
     `# ${title || 'Untitled'}`,
     `id: ${o.id} · type: ${type?.name ?? '?'} · url: ${origin}/o/${o.id}`,
+    splitAliases(o.aliases).length ? `Also known as: ${splitAliases(o.aliases).join(', ')}` : '',
     ...props.map(([k, v]) => `${k}: ${v}`),
     tags.length ? `Tags: ${tags.map((t) => `#${t.title}`).join(' ')}` : '',
     '',
@@ -119,7 +120,7 @@ export function buildMcpServer(opts: { origin: string; timeZone: string }): McpS
 
   server.registerTool('search', {
     title: 'Search',
-    description: 'Full-text search over titles and note text in a workspace. Returns ids to use with get_object.',
+    description: 'Full-text search over titles, aliases and note text in a workspace. Returns ids to use with get_object.',
     inputSchema: z.object({ query: z.string().min(1), workspace: wsArg, limit: z.number().int().min(1).max(50).optional() }),
     annotations: { readOnlyHint: true },
   }, safe(async ({ query, workspace, limit }) => {
@@ -193,17 +194,19 @@ export function buildMcpServer(opts: { origin: string; timeZone: string }): McpS
     inputSchema: z.object({
       type: z.string(),
       title: z.string().min(1),
+      aliases: z.array(z.string()).optional().describe('Other names, e.g. ["Bob"] for "Robert Smith"'),
       markdown: z.string().optional(),
       properties: z.record(z.string(), z.unknown()).optional(),
       workspace: wsArg,
     }),
-  }, safe(async ({ type, title, markdown, properties, workspace }) => {
+  }, safe(async ({ type, title, aliases, markdown, properties, workspace }) => {
     const ws = await resolveWorkspace(workspace);
     const t = await resolveType(ws.id, type);
     if (!t.enabled) throw new Error(`${t.name} is turned off in ${ws.name}.`);
     if (t.id === 'type_day') throw new Error('Use append_to_daily_note for daily notes.');
     const id = await createObject({ workspaceId: ws.id, typeId: t.id, title });
     if (properties) await saveProperties(id, t.properties, coerceProperties(t.properties, properties));
+    if (aliases?.length) await setAliases(id, aliases);
     if (markdown) {
       const o = (await getObject(id))!;
       await saveContent(id, [...(o.content as Block[]), ...(await markdownToBlocks(markdown, ws.id))]);
@@ -213,18 +216,20 @@ export function buildMcpServer(opts: { origin: string; timeZone: string }): McpS
 
   server.registerTool('update_object', {
     title: 'Update an object',
-    description: 'Renames an object, sets property values (keyed by key or label; others stay), and/or appends Markdown to its note.',
+    description: 'Renames an object, replaces its aliases (other names that search and [[links]] also match), sets property values (keyed by key or label; others stay), and/or appends Markdown to its note.',
     inputSchema: z.object({
       id: z.string(),
       title: z.string().optional(),
+      aliases: z.array(z.string()).optional().describe('Full list of other names; [] clears them'),
       properties: z.record(z.string(), z.unknown()).optional(),
       append_markdown: z.string().optional(),
     }),
-  }, safe(async ({ id, title, properties, append_markdown }) => {
+  }, safe(async ({ id, title, aliases, properties, append_markdown }) => {
     const o = await getObject(id);
     if (!o) throw new Error(`No object with id ${id}`);
     const t = (await getTypeById(o.type_id))!;
     if (title && o.type_id !== 'type_day') await renameObject(id, title);
+    if (aliases && o.type_id !== 'type_day') await setAliases(id, aliases);
     if (properties) {
       const values = { ...o.properties, ...coerceProperties(t.properties, properties) };
       await saveProperties(id, t.properties, values);

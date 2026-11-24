@@ -35,7 +35,7 @@ export const GET: APIRoute = async ({ url }) => {
 
     const defs = (type?.properties ?? []) as PropertyDef[];
     const props = (o.properties ?? {}) as Record<string, unknown>;
-    const fields: Record<string, unknown> = { id: o.id, workspace: wsName.get(o.workspace_id as string), type: type?.name, title: o.title, created: o.created_at, updated: o.updated_at };
+    const fields: Record<string, unknown> = { id: o.id, workspace: wsName.get(o.workspace_id as string), type: type?.name, title: o.title, aliases: String(o.aliases ?? '').split('\n').filter(Boolean), created: o.created_at, updated: o.updated_at };
     for (const d of defs) {
       const v = props[d.key];
       fields[d.label] = d.kind === 'relation'

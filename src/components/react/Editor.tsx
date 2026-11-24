@@ -33,6 +33,14 @@ interface Summary {
   type_name: string;
   type_icon: string;
   type_color: string;
+  aliases?: string;
+}
+
+/** The alias that `query` matched, when the title itself doesn't contain it. */
+function matchedAlias(s: Summary, query: string): string | null {
+  const q = query.trim().toLowerCase();
+  if (!q || s.title.toLowerCase().includes(q)) return null;
+  return (s.aliases ?? '').split('\n').find((a) => a.toLowerCase().includes(q)) ?? null;
 }
 
 const TAG = 'type_tag';
@@ -182,6 +190,8 @@ export default function Editor(props: {
   taskTypeId?: string | null;
   /** On a daily note: new tasks are planned for this day. */
   dayDate?: string;
+  /** Today's note: quick capture (kb:capture) inserts here instead of saving on the server. */
+  captureHere?: boolean;
 }) {
   const wsq = `ws=${encodeURIComponent(props.workspaceId)}`;
   const typesById = useMemo(() => Object.fromEntries(props.types.map((t) => [t.id, t])), [props.types]);
@@ -269,6 +279,38 @@ export default function Editor(props: {
       window.removeEventListener('keydown', onKey);
     };
   }, [save]);
+
+  /*
+   * Quick capture while today's note is open: claim the event (so the palette doesn't append
+   * on the server, which this editor's next autosave would overwrite), then insert the
+   * converted blocks at the end. The normal autosave stores them.
+   */
+  useEffect(() => {
+    if (!props.captureHere) return;
+    const onCapture = (e: Event) => {
+      const detail = (e as CustomEvent<{ text: string; workspaceId?: string; done?: Promise<boolean> }>).detail;
+      if (detail.workspaceId && detail.workspaceId !== props.workspaceId) return;
+      e.preventDefault();
+      (e as CustomEvent).detail.done = (async () => {
+        const res = await fetch('/api/capture', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ text: detail.text, workspaceId: props.workspaceId, preview: true }),
+        }).catch(() => null);
+        if (!res?.ok) return false;
+        const { blocks } = (await res.json()) as { blocks: never[] };
+        const doc = editor.document;
+        const last = doc[doc.length - 1];
+        const lastEmpty = last && last.type === 'paragraph' && Array.isArray(last.content) && last.content.length === 0 && !last.children.length;
+        if (lastEmpty) editor.insertBlocks(blocks, last, 'before');
+        else editor.insertBlocks(blocks, last, 'after');
+        await save();
+        return true;
+      })();
+    };
+    window.addEventListener('kb:capture', onCapture);
+    return () => window.removeEventListener('kb:capture', onCapture);
+  }, [editor, save, props.captureHere, props.workspaceId]);
 
   /* mentions */
   const insertMention = useCallback(
@@ -364,9 +406,9 @@ export default function Editor(props: {
   ];
 
   const toItem = useCallback(
-    (s: Summary, group: string): DefaultReactSuggestionItem => ({
+    (s: Summary, group: string, query = ''): DefaultReactSuggestionItem => ({
       title: s.type_id === DAY ? dayLabel(s.title) : s.title || 'Untitled',
-      subtext: s.type_name,
+      subtext: matchedAlias(s, query) ? `${s.type_name} · also “${matchedAlias(s, query)}”` : s.type_name,
       group,
       icon: <TypeTile icon={s.type_icon} color={s.type_color} size={22} />,
       onItemClick: () => insertMention(s),
@@ -382,7 +424,7 @@ export default function Editor(props: {
   const getObjectItems = useCallback(
     async (query: string): Promise<DefaultReactSuggestionItem[]> => {
       const found = await api<Summary[]>(`/api/search?${wsq}&q=${encodeURIComponent(query)}`).catch(() => []);
-      const items = found.filter((s) => s.id !== props.selfId && s.type_id !== DAY).map((s) => toItem(s, 'Objects'));
+      const items = found.filter((s) => s.id !== props.selfId && s.type_id !== DAY).map((s) => toItem(s, 'Objects', query));
 
       const day = typesById[DAY];
       for (const [label, iso] of dateMatches(query)) {
@@ -396,7 +438,8 @@ export default function Editor(props: {
       }
 
       const q = query.trim();
-      if (q && !found.some((s) => s.title.toLowerCase() === q.toLowerCase())) {
+      const same = (x: string) => x.trim().toLowerCase() === q.toLowerCase();
+      if (q && !found.some((s) => same(s.title) || (s.aliases ?? '').split('\n').some(same))) {
         for (const t of props.types) {
           if (t.id === DAY || t.enabled === false) continue;
           items.push({

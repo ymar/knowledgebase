@@ -115,6 +115,14 @@ Do not copy Capacities assets, icons, logo or wording.
   list_types, search, get_object, list_objects, get_daily_note, append_to_daily_note, create_object, update_object,
   create_type, add_properties, list_tasks, create_task, set_task_status, complete_task. No deletes. Markdown in, via `src/lib/from-markdown.ts` ([[Title]] links).
   Auth: Cloudflare Access with Managed OAuth; vars ACCESS_TEAM_DOMAIN, ACCESS_AUD, TIMEZONE in wrangler.jsonc.
+- Aliases (migration 0014): `objects.aliases`, one per line (`splitAliases`), edited under the title as a comma list
+  (`set-aliases`; deduped, never the title). FTS columns are title, aliases, text_content (snippet column 2, bm25
+  8/6/1). `@` search ranks title prefix, then alias prefix; the menu shows the matched alias. Unlinked mentions and
+  "Link" try the title, then aliases (longest first); the chip shows the real title. MCP `[[Alias]]` resolves too.
+- Quick capture: Cmd/Ctrl+Shift+. (`e.code === 'Period'`), the palette command "Capture to today", or the pen button
+  in the mobile header (`[data-quick-capture]`). `POST /api/capture` appends Markdown to today's note in the current
+  workspace. When today's note is open, its editor claims the `kb:capture` event and inserts the blocks itself
+  (`preview: true` only converts), so its autosave can't overwrite a server-side append.
 - `astro dev` runs as a managed background process: stop it with `npx astro dev stop` before `db:reset`.
 
 ## Code rules
@@ -212,7 +220,7 @@ Items marked SCHEMA need approval of the SQL before building.
 - [ ] **Open to-dos across objects**: extract checklist items on save into a `todos` table
       (`object_id, block_id, text, done`) and show an "Open to-dos" list on the home page. SCHEMA.
 - [ ] **Object icon/emoji and cover image** SCHEMA: `objects.icon`, `objects.cover_key` (R2).
-- [ ] **Quick capture**: a global shortcut and a phone-friendly button that appends a line to today's note.
+- [x] **Quick capture**: a global shortcut and a phone-friendly button that appends a line to today's note.
 
 ### Gap analysis round 2 (after daily notes, workspaces, per-workspace types)
 
@@ -229,10 +237,10 @@ Ranked by value for daily use. SCHEMA items need the SQL approved first.
 - [x] **N4 Collections** (as above).
 - [x] **N5 Object embeds / cards** in the editor (as above), then block references (P3).
 - [x] **N6 Bulk actions** on type pages: select several, set a property, tag, move to trash.
-- [ ] **N7 Aliases**: extra names per object, used by `@` search and unlinked mentions.
+- [x] **N7 Aliases**: extra names per object, used by `@` search and unlinked mentions.
 - [ ] **N8 Calendar depth**: a time property and times on scheduled objects; week and month views;
       a "reviewed" mark on daily notes.
-- [ ] **N9 Icons/covers** and **quick capture** (as above).
+- [ ] **N9 Icons/covers** (as above). Quick capture is done.
 - [ ] **Small**: move an object to another workspace; Day/Tag switchable per workspace; date picker in the
       filter row; "+ Type" buttons on other object pages (KB's own idea, not in Capacities).
 

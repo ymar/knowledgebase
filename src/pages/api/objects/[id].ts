@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import {
   addTag, addToCollectionByName, changeType, completeTask, isTaskType, mergeTags, removeFromCollection, typeBelongsTo, createObject, findByTitle, getObject, getTypeById, removeTag, renameObject,
-  saveProperties, setPinned, setTypeTemplate, softDeleteObject,
+  saveProperties, setAliases, setPinned, setTypeTemplate, softDeleteObject,
 } from '../../../lib/db';
 import { parsePropertyForm } from '../../../lib/properties';
 import { linkMention } from '../../../lib/unlinked';
@@ -21,6 +21,9 @@ export const POST: APIRoute = async ({ params, request, redirect }) => {
   switch (form.get('_action')) {
     case 'rename':
       if (type.id !== 'type_day') await renameObject(id, field('title'));
+      break;
+    case 'set-aliases':
+      if (type.id !== 'type_day') await setAliases(id, String(form.get('aliases') ?? ''));
       break;
     case 'properties': {
       const values = parsePropertyForm(type.properties, form);

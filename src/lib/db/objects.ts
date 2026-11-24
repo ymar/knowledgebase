@@ -85,6 +85,31 @@ export async function renameObject(id: string, title: string): Promise<void> {
     .run();
 }
 
+/** Normalizes alias input (lines or commas): trimmed, deduplicated case-insensitively, not the title itself. */
+export function normalizeAliases(input: string | string[], title: string): string[] {
+  const raw = Array.isArray(input) ? input : input.split(/[\n,]/);
+  const seen = new Set([title.trim().toLowerCase()]);
+  const out: string[] = [];
+  for (const a of raw.map((x) => x.trim().replace(/\s+/g, ' ')).filter(Boolean)) {
+    if (seen.has(a.toLowerCase()) || a.length > 120) continue;
+    seen.add(a.toLowerCase());
+    out.push(a);
+  }
+  return out.slice(0, 20);
+}
+
+/** Saves aliases (stored one per line). Returns the saved list. */
+export async function setAliases(id: string, input: string | string[]): Promise<string[]> {
+  const obj = await db().prepare('SELECT title FROM objects WHERE id = ? AND deleted_at IS NULL').bind(id).first<{ title: string }>();
+  if (!obj) return [];
+  const list = normalizeAliases(input, obj.title);
+  await db()
+    .prepare('UPDATE objects SET aliases = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL')
+    .bind(list.join('\n'), nowIso(), id)
+    .run();
+  return list;
+}
+
 /**
  * Replaces the object's property values and, in the same batch, rewrites its
  * origin = 'property' link rows from the relation-kind values.

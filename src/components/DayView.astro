@@ -93,7 +93,7 @@ const fmt = (iso: string, opt: Intl.DateTimeFormatOptions) =>
   moveOpen={date === today ? { ws, back: '/' } : undefined} />
 
 <div class="mt-8">
-  <Editor client:only="react" saveUrl={`/api/days/${date}/content?ws=${ws}`} workspaceId={ws} taskTypeId={taskTypeId} dayDate={date} initialContent={initial} refs={refs} types={types} selfId={dayId} />
+  <Editor client:only="react" saveUrl={`/api/days/${date}/content?ws=${ws}`} workspaceId={ws} taskTypeId={taskTypeId} dayDate={date} captureHere={date === today} initialContent={initial} refs={refs} types={types} selfId={dayId} />
 </div>
 
 <DateRefs items={dateRefItems} class="mt-12 xl:hidden" />

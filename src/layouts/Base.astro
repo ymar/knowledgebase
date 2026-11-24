@@ -50,7 +50,8 @@ const paletteTypes = types.map((t) => ({ id: t.id, name: t.name, slug: t.slug, i
       <span class="flex items-center gap-1.5 rounded-full border border-line px-2 py-0.5 text-xs text-muted">
         <span class="h-2 w-2 rounded-full" style={`background:${ws.color}`}></span>{ws.name}
       </span>
-      <button data-open-palette class="btn ml-auto px-2.5" aria-label="Search"><Icon name="search" /></button>
+      <button type="button" data-quick-capture class="btn ml-auto px-2.5" aria-label="Capture to today"><Icon name="pen" /></button>
+      <button data-open-palette class="btn px-2.5" aria-label="Search"><Icon name="search" /></button>
     </header>
 
     <div id="scrim" class="fixed inset-0 z-30 hidden bg-black/20 md:hidden"></div>

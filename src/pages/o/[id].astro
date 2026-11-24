@@ -11,7 +11,7 @@ import TaskList from '../../components/TaskList.astro';
 import TaskBoard from '../../components/TaskBoard.astro';
 import { requestTimeZone, todayIn } from '../../lib/format';
 import {
-  allTags, collectionsOf, listCollections, listRecent, taskBoard, tasksForObject, taskTypeIdFor, getTypeById, getTypeBySlug, getObject, listObjectsByType, listTypes, markOpened, pickedTags,
+  allTags, splitAliases, collectionsOf, listCollections, listRecent, taskBoard, tasksForObject, taskTypeIdFor, getTypeById, getTypeBySlug, getObject, listObjectsByType, listTypes, markOpened, pickedTags,
 } from '../../lib/db';
 import { editorProps } from '../../lib/editor-props';
 import { isTaskType } from '../../lib/db/tasks';
@@ -57,6 +57,7 @@ const contextTasks = isTaskType(type.id) || !taskTypeId ? [] : await tasksForObj
 // Tasks for this object as a list (default) or a status board (?tasks=board), like Capacities' Tasks tab.
 const tasksAsBoard = Astro.url.searchParams.get('tasks') === 'board';
 const contextBoard = tasksAsBoard && taskTypeId && contextTasks.length ? await taskBoard(object.workspace_id, object.id) : null;
+const aliasList = splitAliases(object.aliases);
 const [{ refs, types }, allTypes, tags, tagOptions, unlinked, inCollections, typeCollections] = await Promise.all([
   editorProps(object.workspace_id, object.content),
   listTypes(object.workspace_id),
@@ -120,6 +121,18 @@ const notice = Astro.url.searchParams.get('notice');
       onchange="this.form.requestSubmit()"
     />
   </form>
+
+  {type.id !== 'type_day' && (
+    <form method="post" action={`/api/objects/${object.id}`} class="flex items-center gap-1.5 text-sm">
+      <input type="hidden" name="_action" value="set-aliases" />
+      {aliasList.length > 0 && <span class="text-muted" aria-hidden="true">Also</span>}
+      <label class="sr-only" for="aliases">Aliases, separated by commas</label>
+      <input id="aliases" name="aliases" value={aliasList.join(', ')} placeholder="+ Add alias" autocomplete="off"
+        title="Other names for this object, separated by commas. @ search, Cmd+K and unlinked mentions find them."
+        class="-ml-1.5 min-w-0 flex-1 rounded-md bg-transparent px-1.5 py-0.5 text-muted placeholder:text-muted/70 focus:bg-card focus:text-ink focus:outline-none focus:ring-1 focus:ring-line"
+        onchange="this.form.requestSubmit()" />
+    </form>
+  )}
 
   {!isTag && (
     <div class="mt-3 flex flex-wrap items-center gap-1.5">

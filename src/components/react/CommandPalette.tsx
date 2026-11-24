@@ -69,7 +69,12 @@ export default function CommandPalette({
   /** The workspace's Task type, if on: enables Cmd/Ctrl+Shift+T. */
   taskTypeId?: string | null;
 }) {
-  const [taskMode, setTaskMode] = useState(false);
+  const [mode, setMode] = useState<'search' | 'task' | 'capture'>('search');
+  const taskMode = mode === 'task';
+  const captureMode = mode === 'capture';
+  /** Lines captured since the palette opened (capture mode stays open for the next one). */
+  const [captured, setCaptured] = useState<string[]>([]);
+  const [captureError, setCaptureError] = useState(false);
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const [hits, setHits] = useState<Hit[]>([]);
@@ -86,7 +91,9 @@ export default function CommandPalette({
   }, []);
   const hide = useCallback(() => {
     setOpen(false);
-    setTaskMode(false);
+    setMode('search');
+    setCaptured([]);
+    setCaptureError(false);
     setQ('');
     (lastFocus.current as HTMLElement | null)?.focus?.();
   }, []);
@@ -98,12 +105,20 @@ export default function CommandPalette({
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === 't' && taskTypeId) {
         e.preventDefault();
         e.stopPropagation();
-        setTaskMode(true);
+        setMode('task');
+        if (!open) show();
+        return;
+      }
+      // Cmd/Ctrl+Shift+. (period): capture a line to today's note.
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && !e.altKey && e.code === 'Period') {
+        e.preventDefault();
+        e.stopPropagation();
+        setMode('capture');
         if (!open) show();
         return;
       }
       if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') {
-        setTaskMode(false);
+        setMode('search');
         // Capture phase + stop: Cmd+K is the palette everywhere, including inside the
         // editor (BlockNote's own Mod+K link shortcut; links stay in the formatting toolbar).
         e.preventDefault();
@@ -115,7 +130,13 @@ export default function CommandPalette({
     const onClick = (e: MouseEvent) => {
       if ((e.target as Element).closest?.('[data-quick-task]') && taskTypeId) {
         e.preventDefault();
-        setTaskMode(true);
+        setMode('task');
+        show();
+        return;
+      }
+      if ((e.target as Element).closest?.('[data-quick-capture]')) {
+        e.preventDefault();
+        setMode('capture');
         show();
         return;
       }
@@ -159,6 +180,36 @@ export default function CommandPalette({
 
   const actions = useMemo<Action[]>(() => {
     const out: Action[] = [];
+    if (captureMode) {
+      const text = q.trim();
+      const day = types.find((t) => t.id === DAY);
+      if (text) {
+        out.push({
+          key: 'capture',
+          group: 'Add to today',
+          label: text,
+          detail: 'Enter to add · [[Title]] links',
+          icon: day ?? { icon: 'calendar', color: '#78716c' },
+          run: async () => {
+            setCaptureError(false);
+            // Today's note open in an editor claims it (see Editor), else the server appends.
+            const detail: { text: string; workspaceId?: string; done?: Promise<boolean> } = { text, workspaceId: currentWorkspace };
+            const claimed = !window.dispatchEvent(new CustomEvent('kb:capture', { detail, cancelable: true }));
+            const ok = claimed
+              ? await (detail.done ?? Promise.resolve(false))
+              : await fetch('/api/capture', {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify({ text, workspaceId: currentWorkspace }),
+                }).then((r) => r.ok, () => false);
+            if (!ok) return setCaptureError(true);
+            setCaptured((c) => [...c, text]);
+            setQ('');
+          },
+        });
+      }
+      return out;
+    }
     if (taskMode) {
       const title = q.trim();
       const task = types.find((t) => t.id === taskTypeId);
@@ -200,6 +251,20 @@ export default function CommandPalette({
     const query = q.trim();
     const lower = query.toLowerCase();
     const day = types.find((t) => t.id === DAY);
+    if (!query || 'capture'.startsWith(lower) || 'add to today'.startsWith(lower) || (lower.length > 2 && 'quick capture'.includes(lower))) {
+      out.push({
+        key: 'mode:capture',
+        group: 'Commands',
+        label: 'Capture to today',
+        detail: '⌘⇧.',
+        icon: day ?? { icon: 'calendar', color: '#78716c' },
+        run: () => {
+          setMode('capture');
+          setQ('');
+          input.current?.focus();
+        },
+      });
+    }
     if (day && (!query || 'today'.startsWith(lower))) {
       out.push({ key: 'today', group: 'Go to', label: 'Today', icon: day, run: go('/') });
     }
@@ -263,7 +328,7 @@ export default function CommandPalette({
       }
     }
     return out;
-  }, [hits, recent, q, types, workspaces, currentWorkspace, hide, taskMode, taskTypeId]);
+  }, [hits, recent, q, types, workspaces, currentWorkspace, hide, taskMode, captureMode, taskTypeId]);
 
   const run = useCallback(
     async (a: Action | undefined) => {
@@ -314,8 +379,8 @@ export default function CommandPalette({
             ref={input}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder={taskMode ? 'New task… try “Call the bank !! friday”' : 'Search, jump to, or create…'}
-            aria-label="Search"
+            placeholder={taskMode ? 'New task… try “Call the bank !! friday”' : captureMode ? 'Add a line to today’s note…' : 'Search, jump to, or create…'}
+            aria-label={captureMode ? 'Capture to today' : taskMode ? 'New task' : 'Search'}
             aria-controls="palette-list"
             aria-activedescendant={actions[active] ? `pal-${active}` : undefined}
             role="combobox"
@@ -327,7 +392,19 @@ export default function CommandPalette({
           <kbd className="hidden sm:inline">esc</kbd>
         </div>
         <ul ref={list} id="palette-list" role="listbox" className="max-h-[60vh] overflow-y-auto p-2">
-          {actions.length === 0 && <li className="px-3 py-6 text-center text-sm text-muted">No matches.</li>}
+          {captureMode && actions.length === 0 && (
+            <li className="px-3 py-5 text-sm text-muted" role="presentation">
+              {captureError
+                ? <span className="text-red-600">Couldn’t save that. Try again.</span>
+                : captured.length
+                  ? <span role="status">Added to today: {captured.length === 1 ? `“${captured[0]}”` : `${captured.length} lines`}. Type the next one, or Esc to close.</span>
+                  : <>Type a thought, press Enter. It lands at the bottom of today’s note. <kbd>[[</kbd> links an object, <kbd>- [ ]</kbd> makes a checkbox.</>}
+            </li>
+          )}
+          {captureMode && captureError && actions.length > 0 && (
+            <li className="px-3 pb-1 pt-2 text-sm text-red-600" role="alert">Couldn’t save that. Try again.</li>
+          )}
+          {!captureMode && actions.length === 0 && <li className="px-3 py-6 text-center text-sm text-muted">No matches.</li>}
           {actions.map((a, i) => {
             const header = a.group !== lastGroup ? a.group : null;
             lastGroup = a.group;

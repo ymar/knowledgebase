@@ -6,7 +6,7 @@ export async function exportAll() {
   const [workspaces, types, objects, links, views, collections, collectionItems] = await d.batch([
     d.prepare('SELECT * FROM workspaces ORDER BY sort_order'),
     d.prepare('SELECT * FROM types ORDER BY sort_order'),
-    d.prepare('SELECT id, workspace_id, type_id, title, properties, content, text_content, created_at, updated_at, deleted_at, opened_at, pinned_at FROM objects ORDER BY created_at'),
+    d.prepare('SELECT id, workspace_id, type_id, title, aliases, properties, content, text_content, created_at, updated_at, deleted_at, opened_at, pinned_at FROM objects ORDER BY created_at'),
     d.prepare('SELECT source_id, target_id, origin, created_at FROM links ORDER BY created_at'),
     d.prepare('SELECT * FROM views ORDER BY created_at'),
     d.prepare('SELECT * FROM collections ORDER BY created_at'),
