@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { createObject, findByTitle, findDay, getSummaries, getTypeById, isTaskType, saveProperties, typeBelongsTo } from '../../../lib/db';
+import { getObject, createObject, findByTitle, findDay, getSummaries, getTypeById, isTaskType, saveProperties, typeBelongsTo } from '../../../lib/db';
 import { parseTaskTitle } from '../../../lib/task-logic';
 import type { PropertyValue } from '../../../lib/schema';
 import { isIsoDay, requestTimeZone, todayIn } from '../../../lib/format';
@@ -14,7 +14,7 @@ import { resolveWs } from '../../../lib/workspace';
 export const POST: APIRoute = async ({ request, redirect, locals }) => {
   const isJson = request.headers.get('content-type')?.includes('application/json');
   const input = isJson
-    ? ((await request.json().catch(() => ({}))) as { typeId?: string; title?: string; workspaceId?: string; date?: string; back?: string; context?: string })
+    ? ((await request.json().catch(() => ({}))) as { typeId?: string; title?: string; workspaceId?: string; date?: string; back?: string; context?: string; relKey?: string; relTo?: string })
     : Object.fromEntries(await request.formData());
   const ws = resolveWs(locals, input.workspaceId ? String(input.workspaceId) : null);
   const typeId = String(input.typeId ?? '');
@@ -51,10 +51,18 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
     if (context) properties.context = [context];
   }
   if (type.day_key && isIsoDay(date)) properties[type.day_key] = date;
+  // "+ Type" on an object page: fill a relation property with that object (same workspace only).
+  const relKey = String(input.relKey ?? '');
+  const relTo = String(input.relTo ?? '');
+  const relDef = type.properties.find((p) => p.key === relKey && p.kind === 'relation');
+  if (relDef && relTo) {
+    const target = await getObject(relTo);
+    if (target && target.workspace_id === ws) properties[relDef.key] = relDef.multiple ? [relTo] : relTo;
+  }
   if (!id) {
     id = await createObject({ workspaceId: ws, typeId: type.id, title: finalTitle, properties });
-    // A Context is a relation: write its link rows the normal way.
-    if (properties.context) await saveProperties(id, type.properties, properties);
+    // Relations (Context, or the one above) write their link rows the normal way.
+    if (properties.context || (relDef && properties[relDef.key])) await saveProperties(id, type.properties, properties);
   }
 
   // Forms may ask to return where they came from (e.g. the Tasks page); only local paths.

@@ -141,6 +141,9 @@ Do not copy Capacities assets, icons, logo or wording.
   (`objectsWithOpenChecklists` finds them with `json_tree`; `openChecklistItems` in doc.ts extracts them). Ticking
   posts `POST /api/objects/:id/checklist {blockId, checked}`, which rewrites that block and saves the note. Not on
   Home on purpose: today's open editor would overwrite the change on its next autosave.
+- "+ Type" on object pages (`RelatedAdd.astro`): one button per enabled non-task type with a relation property whose
+  target is this object's type. It posts `POST /api/objects` with `relKey` and `relTo` (same workspace only), which
+  fills that relation and writes its link rows; the new object shows under "Linked here".
 - `astro dev` runs as a managed background process: stop it with `npx astro dev stop` before `db:reset`.
 
 ## Code rules
@@ -259,7 +262,7 @@ Ranked by value for daily use. SCHEMA items need the SQL approved first.
       a "reviewed" mark on daily notes.
 - [x] **N9 Icons/covers** and quick capture.
 - [ ] **Small**: move an object to another workspace; Day/Tag switchable per workspace; date picker in the
-      filter row [done]; "+ Type" buttons on other object pages (KB's own idea, not in Capacities).
+      filter row [done]; "+ Type" buttons on other object pages [done].
 
 ### Follow-ups from the Capacities docs (tasks, queries, collections, bulk actions)
 

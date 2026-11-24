@@ -1,0 +1,62 @@
+---
+/**
+ * "+ Type" buttons on an object page: for every enabled type in the workspace with a relation
+ * property that links to this object's type, create one with that property set to this object.
+ * Tasks have their own section, so they're left out. The new object shows under "Linked here".
+ */
+import Icon from './Icon.astro';
+import TypeTile from './TypeTile.astro';
+import type { TypeRow } from '../lib/schema';
+import { isTaskType } from '../lib/db/tasks';
+
+interface Props { types: TypeRow[]; objectType: TypeRow; objectId: string; workspaceId: string }
+const { types, objectType, objectId, workspaceId } = Astro.props;
+const options = types
+  .filter((t) => t.enabled && !isTaskType(t.id) && t.id !== 'type_day' && t.id !== 'type_tag')
+  .flatMap((t) => t.properties
+    .filter((p) => p.kind === 'relation' && p.target === objectType.slug)
+    .map((p) => ({ t, p })));
+---
+{options.length > 0 && (
+  <div data-related-add class="mt-4">
+    <div class="flex flex-wrap gap-2" role="group" aria-label={`Add something linked to this ${objectType.name.toLowerCase()}`}>
+      {options.map(({ t, p }) => (
+        <button type="button" data-ra={`${t.id}:${p.key}`} title={`New ${t.name.toLowerCase()} with ${p.label} set to this`}
+          class="inline-flex items-center gap-1.5 rounded-lg border border-line bg-card py-1 pl-2 pr-2.5 text-sm text-ink/80 shadow-xs transition hover:border-ink/25 hover:text-ink aria-pressed:border-ink/40 aria-pressed:text-ink">
+          <Icon name="plus" size={13} class="text-muted" />
+          <TypeTile icon={t.icon} color={t.color} size="sm" />
+          {t.name}{options.filter((o) => o.t.id === t.id).length > 1 && <span class="text-xs text-muted">· {p.label}</span>}
+        </button>
+      ))}
+    </div>
+    {options.map(({ t, p }) => (
+      <form method="post" action="/api/objects" data-ra-form={`${t.id}:${p.key}`} hidden class="mt-2 flex gap-2">
+        <input type="hidden" name="typeId" value={t.id} />
+        <input type="hidden" name="workspaceId" value={workspaceId} />
+        <input type="hidden" name="relKey" value={p.key} />
+        <input type="hidden" name="relTo" value={objectId} />
+        <input type="hidden" name="back" value={`/o/${objectId}`} />
+        <input name="title" required autocomplete="off" class="field min-w-0 flex-1" aria-label={`New ${t.name.toLowerCase()}`} placeholder={`New ${t.name.toLowerCase()}…`} />
+        <button class="btn-primary" type="submit">Add</button>
+        <button class="btn" type="button" data-ra-cancel>Cancel</button>
+      </form>
+    ))}
+  </div>
+)}
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-related-add]').forEach((root) => {
+    const chips = [...root.querySelectorAll<HTMLButtonElement>('[data-ra]')];
+    const forms = [...root.querySelectorAll<HTMLFormElement>('[data-ra-form]')];
+    const show = (key: string | null) => {
+      forms.forEach((f) => (f.hidden = f.dataset.raForm !== key));
+      chips.forEach((c) => c.toggleAttribute('aria-pressed', c.dataset.ra === key));
+      forms.find((f) => f.dataset.raForm === key)?.querySelector<HTMLInputElement>('input[name=title]')?.focus();
+    };
+    chips.forEach((c) => c.addEventListener('click', () => show(c.getAttribute('aria-pressed') !== null ? null : c.dataset.ra!)));
+    forms.forEach((f) => {
+      f.querySelector('[data-ra-cancel]')!.addEventListener('click', () => show(null));
+      f.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); show(null); } });
+    });
+  });
+</script>

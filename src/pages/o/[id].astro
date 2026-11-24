@@ -82,6 +82,7 @@ const notice = Astro.url.searchParams.get('notice');
 import IconPicker from '../../components/IconPicker.astro';
 import CoverPicker from '../../components/CoverPicker.astro';
 import { coverStyle } from '../../lib/media';
+import RelatedAdd from '../../components/RelatedAdd.astro';
 ---
 <Base title={object.title || 'Untitled'} activeTypeId={type.id} activeObjectId={object.id}>
   {cover && (
@@ -196,6 +197,8 @@ import { coverStyle } from '../../lib/media';
       </form>
     </div>
   )}
+
+  {canDecorate && <RelatedAdd types={allTypes} objectType={type} objectId={object.id} workspaceId={object.workspace_id} />}
 
   {type.properties.length > 0 && (
     <div class="mt-6">
