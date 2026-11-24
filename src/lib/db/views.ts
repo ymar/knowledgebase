@@ -8,6 +8,14 @@ export interface ViewSpec {
   sort?: Sort;
   view?: 'list' | 'cards';
   collection?: string;
+  also?: string[];
+  tags?: string[];
+  links?: string;
+  words?: string;
+  group?: string;
+  limit?: number;
+  random?: boolean;
+  blocks?: boolean;
 }
 export interface SavedView {
   id: string;

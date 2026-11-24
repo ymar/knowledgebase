@@ -3,12 +3,12 @@ import Base from '../../../layouts/Base.astro';
 import ObjectCards from '../../../components/ObjectCards.astro';
 import TypeTile from '../../../components/TypeTile.astro';
 import Icon from '../../../components/Icon.astro';
-import { allTags, getSummaries, getTypeBySlug, listCollections, listViews, queryObjects, recentlyOpened } from '../../../lib/db';
+import { allTags, findByTitles, getSummaries, getTypeBySlug, listCollections, listTypes, listViews, recentlyOpened } from '../../../lib/db';
+import { hasMore, runQuery } from '../../../lib/query-run';
 import { specToQuery } from '../../../lib/view-results';
 import BulkBar from '../../../components/BulkBar.astro';
-import { OPS, SORTS, readListParams, withParams } from '../../../lib/list-params';
+import { GROUPABLE, OPS, SORTS, readListParams, withParams } from '../../../lib/list-params';
 import { setWorkspaceCookie } from '../../../lib/workspace';
-import { relationIds } from '../../../lib/schema';
 import DatePicker from '../../../components/DatePicker.astro';
 import { requestTimeZone, todayIn } from '../../../lib/format';
 import { dayLabel } from '../../../lib/format';
@@ -33,7 +33,17 @@ if (Astro.url.searchParams.has('view')) {
 
 const isDay = type.id === 'type_day';
 const today = todayIn(requestTimeZone(Astro.request));
-const plain = params.show === 'all' && params.filters.length === 0 && !params.collection;
+// "Links to" is typed as a title (or alias): resolve it to an id once, so saved views survive renames.
+const linksTitle = Astro.url.searchParams.get('links_title');
+if (linksTitle !== null) {
+  const next = new URL(Astro.url);
+  next.searchParams.delete('links_title');
+  next.searchParams.delete('links');
+  const hit = linksTitle.trim() ? (await findByTitles(Astro.locals.workspace.id, [linksTitle]))[linksTitle.trim().toLowerCase()] : null;
+  if (hit) next.searchParams.set('links', hit.id);
+  return Astro.redirect(`${next.pathname}${next.search}`, 303);
+}
+const plain = params.show === 'all' && params.filters.length === 0 && !params.collection && !hasMore(params);
 const [views, collections, bulkTags] = await Promise.all([listViews(type.id), listCollections(type.id), allTags(Astro.locals.workspace.id)]);
 const notice = Astro.url.searchParams.get('notice');
 // `sv` marks the saved view being shown (`v` is taken by filter values).
@@ -41,14 +51,15 @@ const activeViewId = Astro.url.searchParams.get('sv');
 const activeCollection = collections.find((c) => c.id === params.collection);
 // What "Save as view" stores: the page's current state without the view marker.
 const currentQs = (() => { const q = new URLSearchParams(Astro.url.search); q.delete('sv'); return q.toString(); })();
-const [items, recent] = await Promise.all([
-  queryObjects({ ws: Astro.locals.workspace.id, typeId: type.id, defs, show: params.show, filters: params.filters, sort: params.sort, collectionId: params.collection }),
+const [run, recent, wsTypes] = await Promise.all([
+  runQuery(Astro.locals.workspace.id, type, params),
   plain ? recentlyOpened(Astro.locals.workspace.id, 4, type.id) : Promise.resolve([]),
+  listTypes(Astro.locals.workspace.id),
 ]);
-
-const relIds = items.flatMap((o) => defs.filter((d) => d.kind === 'relation').flatMap((d) => relationIds(o.properties[d.key])))
-  .filter((v): v is string => typeof v === 'string' && v !== '');
-const relTitles = Object.fromEntries(Object.values(await getSummaries([...new Set(relIds)])).map((s) => [s.id, s.title]));
+const { items, groups, relTitles } = run;
+const otherTypes = wsTypes.filter((t) => t.id !== type.id && t.id !== 'type_day');
+const linksTarget = params.links ? (await getSummaries([params.links]))[params.links] : undefined;
+const groupDefs = defs.filter((d) => GROUPABLE.has(d.kind));
 
 const error = Astro.url.searchParams.get('error');
 const url = Astro.url;
@@ -59,7 +70,7 @@ const tabs = [
 ] as const;
 const filterRows = [...params.filters, { key: '', op: 'contains' as const, value: '' }];
 const kindOf = (key: string) => (key === 'title' ? 'text' : defs.find((d) => d.key === key)?.kind ?? 'text');
-const hasFilters = params.filters.length > 0 || params.sort.key !== 'updated';
+const hasFilters = params.filters.length > 0 || params.sort.key !== 'updated' || hasMore(params);
 ---
 <Base title={type.name} activeTypeId={type.id}>
   <div class="flex items-center gap-4">
@@ -179,7 +190,7 @@ const hasFilters = params.filters.length > 0 || params.sort.key !== 'updated';
 
   <details class="group mt-3 rounded-xl border border-line bg-card" open={hasFilters}>
     <summary class="flex cursor-pointer list-none items-center justify-between px-4 py-2.5 text-sm text-muted hover:text-ink">
-      <span>Filter and sort{hasFilters && <span class="ml-2 rounded-full bg-primary px-1.5 text-[11px] text-primary-ink">{params.filters.length + (params.sort.key !== 'updated' ? 1 : 0)}</span>}</span>
+      <span>Filter and sort{hasFilters && <span class="ml-2 rounded-full bg-primary px-1.5 text-[11px] text-primary-ink">{params.filters.length + (params.sort.key !== 'updated' ? 1 : 0) + params.also.length + params.tags.length + [params.links, params.words, params.group, params.limit, params.random || undefined, params.blocks || undefined].filter(Boolean).length}</span>}</span>
       <span aria-hidden="true" class="transition group-open:rotate-180">⌄</span>
     </summary>
     <form method="get" class="space-y-2 border-t border-line p-4" id="filters">
@@ -205,6 +216,51 @@ const hasFilters = params.filters.length > 0 || params.sort.key !== 'updated';
           </div>
         </div>
       ))}
+      <div class="grid gap-2 border-t border-line pt-3 sm:grid-cols-2">
+        <label class="block text-xs text-muted">Contains words
+          <input name="q" value={params.words ?? ''} placeholder="Any words in title or text" autocomplete="off" class="field mt-1" />
+        </label>
+        <label class="block text-xs text-muted">Links to
+          <input name="links_title" value={linksTarget ? (linksTarget.type_id === 'type_day' ? linksTarget.title : linksTarget.title) : ''}
+            placeholder="Exact title or alias" autocomplete="off" class="field mt-1" />
+        </label>
+        <label class="block text-xs text-muted">Has tag
+          <select name="tag" class="field mt-1">
+            <option value="">Any</option>
+            {bulkTags.map((t) => <option value={t.id} selected={params.tags.includes(t.id)}>#{t.title}</option>)}
+          </select>
+        </label>
+        <label class="block text-xs text-muted">Group by
+          <select name="group" class="field mt-1">
+            <option value="">No grouping</option>
+            {params.also.length > 0 && <option value="type" selected={params.group === 'type'}>Type</option>}
+            {groupDefs.map((d) => <option value={d.key} selected={params.group === d.key}>{d.label}</option>)}
+          </select>
+        </label>
+        {otherTypes.length > 0 && (
+          <fieldset class="sm:col-span-2">
+            <legend class="text-xs text-muted">Also include</legend>
+            <div class="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+              {otherTypes.map((t) => (
+                <label class="inline-flex items-center gap-1.5 text-sm">
+                  <input type="checkbox" name="also" value={t.id} checked={params.also.includes(t.id)} class="accent-[var(--ink)]" /> {t.name}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        )}
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-2 sm:col-span-2">
+          <label class="inline-flex items-center gap-2 text-sm">Show at most
+            <input name="limit" type="number" min="1" max="500" value={params.limit ?? ''} placeholder="All" class="field w-20 py-1.5" />
+          </label>
+          <label class="inline-flex items-center gap-1.5 text-sm">
+            <input type="checkbox" name="random" value="1" checked={params.random} class="accent-[var(--ink)]" /> Random order
+          </label>
+          <label class="inline-flex items-center gap-1.5 text-sm" title="With words, a tag or Links to: show the lines that match">
+            <input type="checkbox" name="blocks" value="1" checked={params.blocks} class="accent-[var(--ink)]" /> Show matching blocks
+          </label>
+        </div>
+      </div>
       <div class="flex flex-wrap items-center gap-2 pt-2">
         <label class="text-sm text-muted" for="sort">Sort by</label>
         <select id="sort" name="sort" class="field w-auto">
@@ -216,7 +272,7 @@ const hasFilters = params.filters.length > 0 || params.sort.key !== 'updated';
           <option value="asc" selected={params.sort.dir === 'asc'}>Ascending</option>
         </select>
         <span class="flex-1"></span>
-        {hasFilters && <a href={withParams(url, { f: null, op: null, v: null, sort: null, dir: null })} class="btn">Reset</a>}
+        {hasFilters && <a href={`${url.pathname}${params.show !== 'all' ? `?show=${params.show}` : ''}`} class="btn">Reset</a>}
         <button class="btn-primary" type="submit">Apply</button>
       </div>
     </form>
@@ -231,10 +287,22 @@ const hasFilters = params.filters.length > 0 || params.sort.key !== 'updated';
 
   {notice && <p role="status" class="mt-4 rounded-lg border border-line bg-card px-3 py-2 text-sm text-muted">{notice}</p>}
 
+  {groups ? (
+    <div class="mt-4 space-y-6">
+      {groups.length === 0 && <p class="rounded-xl border border-dashed border-line px-6 py-10 text-center text-sm text-muted">Nothing matches.</p>}
+      {groups.map((g) => (
+        <section aria-label={g.label}>
+          <h2 class="mb-2 text-sm font-semibold">{g.label} <span class="ml-1 text-xs font-normal tabular-nums text-muted">{g.items.length}</span></h2>
+          <ObjectCards items={g.items} defs={defs} view={params.view} relTitles={relTitles} empty="" />
+        </section>
+      ))}
+    </div>
+  ) : (
   <div class="mt-4">
     <ObjectCards items={items} defs={defs} view={params.view} relTitles={relTitles}
       empty={plain ? (isDay ? 'No daily notes yet. Pick a date above, or open today.' : `No ${type.name.toLowerCase()} objects yet. Press n to create one.`) : 'Nothing matches.'} />
   </div>
+  )}
 
   <script is:inline>
     // Value input follows the chosen property's kind: the date picker for dates, a number pad for numbers.

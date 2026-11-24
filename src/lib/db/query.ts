@@ -1,5 +1,6 @@
 import type { Filter, ObjectCard, ObjectSummary, PropertyDef, PropertyValue, Show, Sort } from '../schema';
 import { db, parseJson } from './index';
+import { ftsQuery } from './search';
 
 const SAFE_KEY = /^[A-Za-z0-9_]+$/;
 const BUILTIN_SORT: Record<string, string> = {
@@ -31,9 +32,29 @@ export async function queryObjects(opts: {
   limit?: number;
   /** Only members of this collection. */
   collectionId?: string;
-}): Promise<ObjectCard[]> {
-  const where: string[] = ['o.workspace_id = ?', 'o.type_id = ?', 'o.deleted_at IS NULL'];
-  const args: unknown[] = [opts.ws, opts.typeId];
+  /** More types to include (same workspace, checked by the caller). */
+  alsoTypeIds?: string[];
+  /** Must link to every one of these (tags, or any object). */
+  linkedTo?: string[];
+  /** Words that must appear in the title, aliases or text (FTS). */
+  words?: string;
+  random?: boolean;
+  /** Also return each object's document JSON (for block results). */
+  withContent?: boolean;
+}): Promise<(ObjectCard & { content?: string })[]> {
+  const typeIds = [opts.typeId, ...(opts.alsoTypeIds ?? []).filter((t) => t !== opts.typeId)];
+  const where: string[] = ['o.workspace_id = ?', `o.type_id IN (${typeIds.map(() => '?').join(',')})`, 'o.deleted_at IS NULL'];
+  const args: unknown[] = [opts.ws, ...typeIds];
+
+  for (const target of opts.linkedTo ?? []) {
+    where.push('EXISTS (SELECT 1 FROM links l WHERE l.source_id = o.id AND l.target_id = ?)');
+    args.push(target);
+  }
+  const match = opts.words ? ftsQuery(opts.words) : null;
+  if (match) {
+    where.push('o.rowid IN (SELECT rowid FROM objects_fts WHERE objects_fts MATCH ?)');
+    args.push(match);
+  }
   const defs = new Map(opts.defs.filter((d) => SAFE_KEY.test(d.key)).map((d) => [d.key, d]));
 
   if (opts.collectionId) {
@@ -114,7 +135,8 @@ export async function queryObjects(opts: {
   }
 
   let order = 'o.updated_at DESC';
-  const sort = opts.sort;
+  const sort = opts.random ? undefined : opts.sort;
+  if (opts.random) order = 'random()';
   if (sort) {
     const dir = sort.dir === 'asc' ? 'ASC' : 'DESC';
     const builtin = BUILTIN_SORT[sort.key];
@@ -131,7 +153,7 @@ export async function queryObjects(opts: {
   const { results } = await db()
     .prepare(
       `SELECT o.id, o.type_id, o.title, o.updated_at, json_extract(o.properties, '$._icon') AS icon, o.created_at, o.properties,
-              substr(o.text_content, 1, 220) AS excerpt,
+              substr(o.text_content, 1, 220) AS excerpt${opts.withContent ? ', o.content' : ''},
               t.name AS type_name, t.slug AS type_slug, t.icon AS type_icon, t.color AS type_color
        FROM objects o JOIN types t ON t.id = o.type_id
        WHERE ${where.join(' AND ')}
@@ -139,7 +161,7 @@ export async function queryObjects(opts: {
        LIMIT ?`,
     )
     .bind(...args, opts.limit ?? 500)
-    .all<Omit<ObjectCard, 'properties'> & { properties: string }>();
+    .all<Omit<ObjectCard, 'properties'> & { properties: string; content?: string }>();
   return results.map((r) => ({ ...r, properties: parseJson<Record<string, PropertyValue>>(r.properties, {}) }));
 }
 

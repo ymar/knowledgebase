@@ -37,7 +37,7 @@ interface QueryData {
   type: { name: string; icon: string; color: string; slug: string };
   href: string;
   total: number;
-  items: { id: string; title: string; icon: string; color: string; meta: string[] }[];
+  items: { id: string; title: string; icon: string; color: string; emoji?: string | null; meta: string[]; group?: string; lines?: string[] }[];
 }
 
 const shell = 'not-prose my-1 w-full select-none rounded-xl border border-line bg-card';
@@ -199,14 +199,23 @@ function QueryView({ viewId, onPick }: { viewId: string; onPick: (id: string) =>
         <p className="px-3.5 py-3 text-sm text-muted">Nothing matches right now.</p>
       ) : (
         <ul className="divide-y divide-line">
-          {data.items.map((o) => (
-            <li key={o.id}>
+          {data.items.map((o, i) => (
+            <li key={`${o.group ?? ''}:${o.id}`}>
+              {o.group !== undefined && o.group !== data.items[i - 1]?.group && (
+                <p className="bg-panel/60 px-3.5 pb-1 pt-2 text-xs font-semibold text-muted">{o.group}</p>
+              )}
               <a href={`/o/${o.id}`} onClick={go(`/o/${o.id}`)} className="flex items-center gap-3 px-3.5 py-2 text-[15px] hover:bg-hover/60">
+                {o.emoji ? <TypeTile icon={o.emoji} color="transparent" size={20} /> : <TypeTile icon={o.icon} color={o.color} size={20} />}
                 <span className="flex-1 truncate">{o.title}</span>
                 {o.meta.map((m) => (
                   <span key={m} className="hidden max-w-[10rem] truncate rounded-md bg-panel px-1.5 py-0.5 text-xs text-muted sm:inline">{m}</span>
                 ))}
               </a>
+              {o.lines && (
+                <ul className="space-y-1 px-3.5 pb-2.5 pl-[2.9rem]">
+                  {o.lines.map((l) => <li key={l} className="border-l-2 border-line pl-2.5 text-sm text-ink/80">{l}</li>)}
+                </ul>
+              )}
             </li>
           ))}
         </ul>

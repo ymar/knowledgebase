@@ -5,7 +5,8 @@ import { displayValue } from '../lib/property-display';
 import { dayLabel, shortDate } from '../lib/format';
 
 interface Props {
-  items: ObjectCard[];
+  /** `lines`: matching blocks to show under the result (query "Show matching blocks"). */
+  items: (ObjectCard & { lines?: string[] })[];
   defs: PropertyDef[];
   view: 'list' | 'cards';
   relTitles: Record<string, string>;
@@ -37,7 +38,11 @@ const title = (o: ObjectCard) => (o.type_id === 'type_day' ? dayLabel(o.title) :
               ))}
             </span>
           )}
-          {o.excerpt && <span class="mt-2.5 line-clamp-3 text-sm leading-relaxed text-ink/70">{o.excerpt}</span>}
+          {o.lines?.length ? (
+            <span class="mt-2.5 space-y-1.5">
+              {o.lines.map((l) => <span class="block border-l-2 border-line pl-2.5 text-sm leading-relaxed text-ink/80">{l}</span>)}
+            </span>
+          ) : o.excerpt && <span class="mt-2.5 line-clamp-3 text-sm leading-relaxed text-ink/70">{o.excerpt}</span>}
           <span class="mt-auto pt-3 text-xs text-muted">{shortDate(o.updated_at)}</span>
         </a>
       </li>
@@ -55,6 +60,11 @@ const title = (o: ObjectCard) => (o.type_id === 'type_day' ? dayLabel(o.title) :
           ))}
           <span class="w-14 text-right text-xs tabular-nums text-muted">{shortDate(o.updated_at)}</span>
         </a>
+        {o.lines && o.lines.length > 0 && (
+          <ul class="space-y-1.5 px-4 pb-3 pl-[3.25rem]" aria-label="Matching blocks">
+            {o.lines.map((l) => <li class="border-l-2 border-line pl-2.5 text-sm leading-relaxed text-ink/80">{l}</li>)}
+          </ul>
+        )}
       </li>
     ))}
   </ul>

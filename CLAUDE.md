@@ -148,6 +148,11 @@ Do not copy Capacities assets, icons, logo or wording.
 - "+ Type" on object pages (`RelatedAdd.astro`): one button per enabled non-task type with a relation property whose
   target is this object's type. It posts `POST /api/objects` with `relKey` and `relTo` (same workspace only), which
   fills that relation and writes its link rows; the new object shows under "Linked here".
+- Richer queries (no schema; all in the URL and the saved view's spec): `also` (more types), `tag` (has every tag),
+  `links` (links to an object; the form's `links_title` is resolved to an id by a redirect), `q` (FTS words), `group`
+  ('type' or a property; multi-value properties put an item in each group), `limit`, `random=1`, `blocks=1` (show the
+  lines that mention the tag / linked object or contain the words). `runQuery` (`src/lib/query-run.ts`) serves the
+  type page and the Query block (`viewResults`), so both show the same thing.
 - `astro dev` runs as a managed background process: stop it with `npx astro dev stop` before `db:reset`.
 
 ## Code rules
@@ -274,7 +279,7 @@ Ranked by value for daily use. SCHEMA items need the SQL approved first.
       Context (link to a project or meeting; a Tasks tab on that object), `()` + space and Cmd/Ctrl+Shift+T to
       create, inline syntax ("!! tomorrow"), recurring tasks (fixed schedule or after completion), "move today's
       tasks to tomorrow", and tasks completed on a day shown on that day's note (needs a done date).
-- [ ] **Queries, closer to Capacities**: several types in one query, filters on tags / backlinks / words,
+- [x] **Queries, closer to Capacities**: several types in one query, filters on tags / backlinks / words,
       group by a property, a limit (also random), and queries that include blocks.
 - [x] **Bulk actions** (N6): see docs.capacities.io/reference/bulk-actions.
 - Calendar integrations (Google/Outlook sync) stay out of scope: third-party integrations.
