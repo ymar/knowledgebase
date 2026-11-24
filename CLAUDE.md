@@ -139,7 +139,7 @@ Do not copy Capacities assets, icons, logo or wording.
 - Icons and covers (no schema): hidden properties `_icon` (one emoji, `cleanEmoji`) and `_cover` (a `preset:<name>` from
   `COVER_PRESETS` or a `/files/` URL), in `src/lib/media.ts`. Keys from labels never start with `_`, and `changeType`
   keeps `_` keys. Summary queries select `icon`; `TypeTile` takes `emoji` and shows it instead of the type icon (lists,
-  cards, pinned, palette, @ menu). Object page: `IconPicker` / `CoverPicker`, actions set-icon, remove-icon, set-cover
+  cards, pinned, palette, @ menu, mention chips via `refs[id].icon`). Object page: `IconPicker` / `CoverPicker`, actions set-icon, remove-icon, set-cover
   (preset or image upload to R2), remove-cover. MCP `update_object` takes `icon`.
 - Checklists (no schema): Tasks › Checklists lists unticked `checkListItem` blocks from every non-task object
   (`objectsWithOpenChecklists` finds them with `json_tree`; `openChecklistItems` in doc.ts extracts them). Ticking

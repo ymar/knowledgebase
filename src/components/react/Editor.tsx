@@ -25,6 +25,8 @@ export interface TypeInfo {
 export interface RefInfo {
   title: string;
   typeId: string;
+  /** The object's own emoji, shown instead of its type icon. */
+  icon?: string | null;
 }
 interface Summary {
   id: string;
@@ -93,7 +95,7 @@ function MentionChip({ id, title, typeId }: { id: string; title: string; typeId:
       style={{ ['--c' as string]: t?.color ?? '#78716c' }}
       title={missing ? 'Deleted object' : undefined}
     >
-      {isTag ? <span aria-hidden="true">#</span> : t && <TypeTile icon={t.icon} color={t.color} size={16} />}
+      {isTag ? <span aria-hidden="true">#</span> : live?.icon ? <TypeTile icon={live.icon} color="transparent" size={16} /> : t && <TypeTile icon={t.icon} color={t.color} size={16} />}
       <span>{shown}</span>
     </a>
   );
@@ -319,7 +321,7 @@ export default function Editor(props: {
   /* mentions */
   const insertMention = useCallback(
     (s: Summary) => {
-      setRefs((r) => ({ ...r, [s.id]: { title: s.title, typeId: s.type_id } }));
+      setRefs((r) => ({ ...r, [s.id]: { title: s.title, typeId: s.type_id, icon: s.icon } }));
       editor.insertInlineContent([{ type: 'mention', props: { id: s.id, title: s.title, typeId: s.type_id } }, ' ']);
     },
     [editor],
@@ -345,7 +347,7 @@ export default function Editor(props: {
     if (block.type === 'checkListItem' && (block.props as { checked?: boolean }).checked) {
       await fetch(`/api/objects/${s.id}/done`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ value: true }) });
     }
-    setRefs((r) => ({ ...r, [s.id]: { title: s.title, typeId: s.type_id } }));
+    setRefs((r) => ({ ...r, [s.id]: { title: s.title, typeId: s.type_id, icon: s.icon } }));
     editor.updateBlock(block, {
       type: 'paragraph',
       content: [{ type: 'mention', props: { id: s.id, title: s.title, typeId: s.type_id } }, ' '],
