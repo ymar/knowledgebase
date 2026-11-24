@@ -1,0 +1,32 @@
+---
+/** One scheduled item in the calendar: time, type, title. Tasks show their done state. */
+import TypeTile from './TypeTile.astro';
+import type { CalendarEntry } from '../lib/db';
+
+interface Props { e: CalendarEntry; compact?: boolean }
+const { e, compact = false } = Astro.props;
+const label = `${e.time ? `${e.time} ` : ''}${e.title || 'Untitled'} (${e.is_task ? (e.done ? 'task, done' : 'task') : e.type_name})`;
+---
+<a href={`/o/${e.id}`} aria-label={label} title={label}
+  class:list={['flex min-w-0 gap-1.5 rounded-md px-1 hover:bg-hover', compact ? 'items-center py-0.5 text-xs' : 'items-start py-1 text-sm leading-snug']}>
+  {e.is_task ? (
+    <span class:list={['flex shrink-0 items-center justify-center rounded border', compact ? 'h-3 w-3' : 'mt-0.5 h-3.5 w-3.5', e.done ? 'border-primary bg-primary text-primary-ink' : 'border-ink/30']} aria-hidden="true">
+      {e.done ? <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg> : null}
+    </span>
+  ) : compact ? (
+    <span class="h-1.5 w-1.5 shrink-0 rounded-full" style={`background:${e.type_color}`} aria-hidden="true"></span>
+  ) : (
+    <TypeTile icon={e.type_icon} color={e.type_color} size="sm" />
+  )}
+  {compact ? (
+    <>
+      {e.time && <span class="shrink-0 tabular-nums text-muted">{e.time}</span>}
+      <span class:list={['truncate', e.is_task && e.done && 'text-muted line-through']}>{e.title || 'Untitled'}</span>
+    </>
+  ) : (
+    <span class="min-w-0 flex-1">
+      {e.time && <span class="block text-xs tabular-nums text-muted">{e.time}</span>}
+      <span class:list={['block break-words', e.is_task && e.done && 'text-muted line-through']}>{e.title || 'Untitled'}</span>
+    </span>
+  )}
+</a>

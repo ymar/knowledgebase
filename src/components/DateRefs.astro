@@ -9,6 +9,7 @@ interface Item {
   type_icon: string;
   type_color: string;
   label: string;
+  time?: string | null;
 }
 interface Props { items: Item[]; class?: string }
 const { items, class: cls = '' } = Astro.props;
@@ -24,6 +25,7 @@ const { items, class: cls = '' } = Astro.props;
             <span class="block truncate text-[15px]">{o.title || 'Untitled'}</span>
             <span class="block text-xs text-muted">{o.type_name} · {o.label}</span>
           </span>
+          {o.time && <span class="shrink-0 rounded-md bg-panel px-1.5 py-0.5 text-xs tabular-nums text-muted">{o.time}</span>}
         </a>
       </li>
     ))}

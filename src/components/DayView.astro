@@ -51,6 +51,7 @@ const propLabel = (typeId: string, key: string) =>
 const dateRefItems = refsOnDay.filter((r) => !isTaskType(r.type_id)).map((r) => ({ ...r, label: propLabel(r.type_id, r.day_key) }));
 const taskTypeId = allTypes.find((t) => isTaskType(t.id) && t.enabled)?.id ?? null;
 // No day object yet: show the Day template. The object is created on first save.
+const reviewed = !!(day?.properties as Record<string, unknown> | undefined)?.reviewed_at;
 const initial = day ? day.content : ((await getTypeById('type_day'))?.template ?? []);
 const { refs, types } = await editorProps(ws, initial);
 const quickTypes = allTypes;
@@ -69,7 +70,21 @@ const fmt = (iso: string, opt: Intl.DateTimeFormatOptions) =>
   </div>
 </div>
 
-<h1 class="mt-3 text-3xl font-bold tracking-tight md:text-[2.5rem] md:leading-tight">{dayLabel(date)}</h1>
+<div class="mt-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
+  <h1 class="text-3xl font-bold tracking-tight md:text-[2.5rem] md:leading-tight">{dayLabel(date)}</h1>
+  {date <= today && (
+    <form method="post" action={`/api/days/${date}/reviewed`} class="md:mb-1.5">
+      <input type="hidden" name="ws" value={ws} />
+      <input type="hidden" name="back" value={Astro.url.pathname} />
+      <input type="hidden" name="value" value={reviewed ? 'false' : 'true'} />
+      <button type="submit" aria-pressed={reviewed ? 'true' : 'false'} title={reviewed ? 'Reviewed. Click to undo.' : 'Mark this day as reviewed'}
+        class="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1 text-sm text-muted hover:bg-hover hover:text-ink aria-pressed:border-transparent aria-pressed:bg-panel aria-pressed:text-ink">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class:list={[reviewed && 'text-emerald-600']}><path d="M20 6 9 17l-5-5" /></svg>
+        {reviewed ? 'Reviewed' : 'Mark reviewed'}
+      </button>
+    </form>
+  )}
+</div>
 
 <QuickAdd types={quickTypes} date={date} workspaceId={ws} />
 

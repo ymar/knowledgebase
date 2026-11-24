@@ -5,6 +5,7 @@ export const KINDS: Record<PropertyKind, string> = {
   text: 'Text',
   number: 'Number',
   date: 'Date',
+  time: 'Time',
   url: 'Link',
   checkbox: 'Checkbox',
   select: 'Select',

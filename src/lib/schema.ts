@@ -1,4 +1,4 @@
-export type PropertyKind = 'text' | 'number' | 'date' | 'url' | 'checkbox' | 'select' | 'multiselect' | 'relation';
+export type PropertyKind = 'text' | 'number' | 'date' | 'url' | 'checkbox' | 'select' | 'multiselect' | 'relation' | 'time';
 
 export interface PropertyDef {
   key: string;

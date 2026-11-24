@@ -73,7 +73,7 @@ const list = (k: string): string[] => relationIds(object.properties[k]);
                 id={`p_${d.key}`}
                 name={`p_${d.key}`}
                 class="field"
-                placeholder="Empty"
+                placeholder={d.kind === 'time' ? 'e.g. 14:00 or 2pm' : 'Empty'}
                 type={d.kind === 'number' ? 'number' : d.kind === 'url' ? 'url' : 'text'}
                 step={d.kind === 'number' ? 'any' : undefined}
                 inputmode={d.kind === 'number' ? 'decimal' : undefined}

@@ -113,7 +113,7 @@ Do not copy Capacities assets, icons, logo or wording.
   the same element (w-auto, px-2, py-1.5) override them.
 - MCP server at `/mcp` (`src/lib/mcp/server.ts`, MCP SDK v2 `createMcpHandler`, stateless). Tools: list_workspaces,
   list_types, search, get_object, list_objects, get_daily_note, append_to_daily_note, create_object, update_object,
-  create_type, add_properties, list_tasks, create_task, set_task_status, complete_task. No deletes. Markdown in, via `src/lib/from-markdown.ts` ([[Title]] links).
+  create_type, add_properties, list_tasks, create_task, set_task_status, complete_task, get_calendar. No deletes. Markdown in, via `src/lib/from-markdown.ts` ([[Title]] links).
   Auth: Cloudflare Access with Managed OAuth; vars ACCESS_TEAM_DOMAIN, ACCESS_AUD, TIMEZONE in wrangler.jsonc.
 - Aliases (migration 0014): `objects.aliases`, one per line (`splitAliases`), edited under the title as a comma list
   (`set-aliases`; deduped, never the title). FTS columns are title, aliases, text_content (snippet column 2, bm25
@@ -123,6 +123,14 @@ Do not copy Capacities assets, icons, logo or wording.
   in the mobile header (`[data-quick-capture]`). `POST /api/capture` appends Markdown to today's note in the current
   workspace. When today's note is open, its editor claims the `kb:capture` event and inserts the blocks itself
   (`preview: true` only converts), so its autosave can't overwrite a server-side append.
+- Calendar depth (migration 0015 turns Task's Time into the new `time` kind): property kind `time` stores "HH:MM"
+  (`parseTime` reads "2pm", "9.30", "14:00"). An object's time is its type's first time property, shown next to its
+  daily-notes date (Date references, calendar). `/calendar` (sidebar under Tasks): Week (7 columns at xl, a list per
+  day below) and Month (cells with up to 3 entries at md+, colored dots on phones); `?view=week|month&d=`, view kept
+  in the `cal_view` cookie; keys [ ] t w m. Entries come from `calendarEntries` (`src/lib/db/calendar.ts`): every type
+  with a `day_key`, tasks included. Repeating tasks show only their next date. Daily notes up to today have a
+  "Mark reviewed" toggle (`POST /api/days/:date/reviewed`, stored as `reviewed_at` in the day's properties); the
+  calendar shows it. `DatePicker` navigate mode takes `href` (with `{date}`) and `compact`. MCP: `get_calendar`.
 - `astro dev` runs as a managed background process: stop it with `npx astro dev stop` before `db:reset`.
 
 ## Code rules
@@ -238,7 +246,7 @@ Ranked by value for daily use. SCHEMA items need the SQL approved first.
 - [x] **N5 Object embeds / cards** in the editor (as above), then block references (P3).
 - [x] **N6 Bulk actions** on type pages: select several, set a property, tag, move to trash.
 - [x] **N7 Aliases**: extra names per object, used by `@` search and unlinked mentions.
-- [ ] **N8 Calendar depth**: a time property and times on scheduled objects; week and month views;
+- [x] **N8 Calendar depth**: a time property and times on scheduled objects; week and month views;
       a "reviewed" mark on daily notes.
 - [ ] **N9 Icons/covers** (as above). Quick capture is done.
 - [ ] **Small**: move an object to another workspace; Day/Tag switchable per workspace; date picker in the

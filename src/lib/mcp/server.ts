@@ -9,7 +9,7 @@ import {
   allTasks, completeTask, createObject, findDay, getBacklinks, getObject, getOrCreateDay, getSummaries,
   getTypeById, isTaskType, listObjectsByType, listTypes, listWorkspaces, pickedTags, saveContent,
   saveProperties, searchFullText, renameObject, taskTypeIdFor, tasksForDay, dateReferences,
-  createType, freeSlug, updateType, setTaskStatus, setAliases, splitAliases,
+  createType, freeSlug, updateType, setTaskStatus, setAliases, splitAliases, calendarEntries, daysWithNotes, reviewedDays,
 } from '../db';
 import { parseTypeForm, slugify, KINDS } from '../type-form';
 import { TYPE_COLORS, TYPE_ICONS } from '../icons';
@@ -21,7 +21,7 @@ import { markdownToBlocks } from '../from-markdown';
 import { displayValue } from '../property-display';
 import { parsePropertyForm } from '../properties';
 import { parseTaskTitle } from '../task-logic';
-import { dayLabel, isIsoDay, todayIn } from '../format';
+import { addDays, dayLabel, isIsoDay, todayIn } from '../format';
 import { relationIds, type PropertyDef, type PropertyValue, type TypeRow } from '../schema';
 
 const text = (s: string) => ({ content: [{ type: 'text' as const, text: s }] });
@@ -320,6 +320,34 @@ export function buildMcpServer(opts: { origin: string; timeZone: string }): McpS
     if (dupes.length) throw new Error(`${t.name} already has: ${dupes.map((p) => p.label).join(', ')}`);
     const props = await saveTypeDefinition(t, ws.id, properties, daily_notes_property);
     return text(`${t.name} now has: ${props.map((p) => p.label).join(', ')}.`);
+  }));
+
+  server.registerTool('get_calendar', {
+    title: 'Calendar',
+    description: 'What is scheduled per day in a date range (default this week, Monday to Sunday): objects on their daily-notes date and tasks on their Date, with times; plus which days have a note and which are marked reviewed.',
+    inputSchema: z.object({
+      from: z.string().optional().describe('YYYY-MM-DD, default this Monday'),
+      to: z.string().optional().describe('YYYY-MM-DD, default from + 6 days; at most 62 days after from'),
+      workspace: wsArg,
+    }),
+    annotations: { readOnlyHint: true },
+  }, safe(async ({ from, to, workspace }) => {
+    const ws = await resolveWorkspace(workspace);
+    const t = today();
+    const start = from && isIsoDay(from) ? from : addDays(t, -((new Date(`${t}T00:00:00Z`).getUTCDay() + 6) % 7));
+    let end = to && isIsoDay(to) && to >= start ? to : addDays(start, 6);
+    if (end > addDays(start, 62)) end = addDays(start, 62);
+    const [entries, notes, reviewed] = await Promise.all([calendarEntries(ws.id, start, end), daysWithNotes(ws.id, start, end), reviewedDays(ws.id, start, end)]);
+    const out = [`# ${dayLabel(start)} to ${dayLabel(end)} (${ws.name})`];
+    for (let d = start; d <= end; d = addDays(d, 1)) {
+      const items = entries.filter((e) => e.date === d);
+      const marks = [notes.has(d) ? 'note' : '', reviewed.has(d) ? 'reviewed' : ''].filter(Boolean).join(', ');
+      if (!items.length && !marks) continue;
+      out.push('', `## ${dayLabel(d)}${marks ? ` (${marks})` : ''}`);
+      for (const e of items) out.push(`- ${e.is_task ? `[${e.done ? 'x' : ' '}] ` : ''}${e.time ? `${e.time} ` : ''}${e.title || 'Untitled'} (${e.type_name}, id ${e.id})`);
+    }
+    if (out.length === 1) out.push('', 'Nothing scheduled.');
+    return text(out.join('\n'));
   }));
 
   server.registerTool('list_tasks', {

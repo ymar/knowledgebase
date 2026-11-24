@@ -1,0 +1,168 @@
+---
+/**
+ * Calendar: week and month views of daily notes and everything scheduled on a day (objects whose
+ * type has a daily-notes date property, tasks included), with times. ?view=week|month&d=YYYY-MM-DD;
+ * the view is remembered in the `cal_view` cookie.
+ */
+import Base from '../layouts/Base.astro';
+import Icon from '../components/Icon.astro';
+import Entry from '../components/CalendarEntry.astro';
+import DatePicker from '../components/DatePicker.astro';
+import { calendarEntries, daysWithNotes, reviewedDays, type CalendarEntry } from '../lib/db';
+import { addDays, isIsoDay, requestTimeZone, todayIn } from '../lib/format';
+
+const ws = Astro.locals.workspace.id;
+const today = todayIn(requestTimeZone(Astro.request));
+const viewParam = Astro.url.searchParams.get('view');
+const view: 'week' | 'month' = viewParam === 'month' || viewParam === 'week'
+  ? viewParam
+  : Astro.cookies.get('cal_view')?.value === 'month' ? 'month' : 'week';
+if (viewParam === view) Astro.cookies.set('cal_view', view, { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' });
+const dParam = Astro.url.searchParams.get('d') ?? '';
+const anchor = isIsoDay(dParam) ? dParam : today;
+
+const mondayOf = (iso: string) => addDays(iso, -((new Date(`${iso}T00:00:00Z`).getUTCDay() + 6) % 7));
+const monthStart = `${anchor.slice(0, 7)}-01`;
+const from = view === 'week' ? mondayOf(anchor) : mondayOf(monthStart);
+const nextMonth = (() => {
+  const [y, m] = anchor.split('-').map(Number);
+  const d = new Date(Date.UTC(y, m, 1));
+  return d.toISOString().slice(0, 10);
+})();
+const prevMonth = (() => {
+  const [y, m] = anchor.split('-').map(Number);
+  const d = new Date(Date.UTC(y, m - 2, 1));
+  return d.toISOString().slice(0, 10);
+})();
+// Month: whole Monday-first weeks covering the month (4 to 6 rows).
+const weeks = view === 'week' ? 1 : Math.ceil(((new Date(`${addDays(nextMonth, -1)}T00:00:00Z`).getTime() - new Date(`${from}T00:00:00Z`).getTime()) / 86_400_000 + 1) / 7);
+const days = Array.from({ length: weeks * 7 }, (_, i) => addDays(from, i));
+const to = days[days.length - 1];
+
+const [entries, notes, reviewed] = await Promise.all([
+  calendarEntries(ws, from, to),
+  daysWithNotes(ws, from, to),
+  reviewedDays(ws, from, to),
+]);
+const byDay = new Map<string, CalendarEntry[]>();
+for (const e of entries) byDay.set(e.date, [...(byDay.get(e.date) ?? []), e]);
+
+const fmt = (iso: string, opt: Intl.DateTimeFormatOptions) =>
+  new Intl.DateTimeFormat('en-GB', { ...opt, timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
+const heading = view === 'week'
+  ? (from.slice(0, 7) === to.slice(0, 7)
+      ? `${fmt(from, { day: 'numeric' })} – ${fmt(to, { day: 'numeric', month: 'long', year: 'numeric' })}`
+      : `${fmt(from, { day: 'numeric', month: 'short' })} – ${fmt(to, { day: 'numeric', month: 'short', year: 'numeric' })}`)
+  : fmt(monthStart, { month: 'long', year: 'numeric' });
+const prev = view === 'week' ? addDays(from, -7) : prevMonth;
+const next = view === 'week' ? addDays(from, 7) : nextMonth;
+const url = (d: string, v = view) => `/calendar?view=${v}&d=${d}`;
+const dayHref = (d: string) => (d === today ? '/' : `/day/${d}`);
+const inRange = (d: string) => (view === 'week' ? true : d.slice(0, 7) === anchor.slice(0, 7));
+const MONTH_CELL_MAX = 3;
+const ariaDay = (d: string) => {
+  const n = byDay.get(d)?.length ?? 0;
+  return `${fmt(d, { weekday: 'long', day: 'numeric', month: 'long' })}${notes.has(d) ? ', has a note' : ''}${reviewed.has(d) ? ', reviewed' : ''}${n ? `, ${n} scheduled` : ''}`;
+};
+---
+<Base title="Calendar" wide>
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <p class="eyebrow">Calendar</p>
+    <div class="flex flex-wrap items-center gap-1.5">
+      <div class="mr-1 flex gap-1 rounded-lg bg-panel p-1 text-sm" role="group" aria-label="View">
+        <a href={url(anchor, 'week')} aria-current={view === 'week' ? 'true' : undefined} class="rounded-md px-2.5 py-0.5 text-muted aria-[current=true]:bg-card aria-[current=true]:text-ink aria-[current=true]:shadow-xs" title="Week (w)">Week</a>
+        <a href={url(anchor, 'month')} aria-current={view === 'month' ? 'true' : undefined} class="rounded-md px-2.5 py-0.5 text-muted aria-[current=true]:bg-card aria-[current=true]:text-ink aria-[current=true]:shadow-xs" title="Month (m)">Month</a>
+      </div>
+      <a href={url(prev)} class="btn px-2" aria-label={`Previous ${view}`} title={`Previous ${view} ( [ )`} data-prev><Icon name="chevron-left" size={16} /></a>
+      <a href={url(today)} class="btn" title="This week or month (t)" data-today>Today</a>
+      <a href={url(next)} class="btn px-2" aria-label={`Next ${view}`} title={`Next ${view} ( ] )`} data-next><Icon name="chevron-right" size={16} /></a>
+      <DatePicker mode="navigate" value={anchor} today={today} label="Go to date" align="right" class="ml-1" href={`/calendar?view=${view}&d={date}`} compact />
+    </div>
+  </div>
+
+  <h1 class="mt-3 text-3xl font-bold tracking-tight md:text-[2.5rem] md:leading-tight">{heading}</h1>
+
+  {entries.length === 0 && (
+    <p class="mt-3 text-sm text-muted">
+      Nothing scheduled {view === 'week' ? 'this week' : 'this month'}. Objects show up here when their type has a daily-notes date
+      (set it under <a href="/types" class="underline hover:text-ink">Types</a>); tasks show on their Date.
+    </p>
+  )}
+
+  {view === 'week' ? (
+    <div class="mt-6 grid gap-3 xl:grid-cols-7 xl:gap-2" data-calendar="week">
+      {days.map((d) => {
+        const items = byDay.get(d) ?? [];
+        return (
+          <section aria-label={ariaDay(d)} data-day={d}
+            class:list={['flex min-w-0 flex-col rounded-xl border bg-card p-2.5 xl:min-h-64', d === today ? 'border-ink/30' : 'border-line']}>
+            <a href={dayHref(d)} class="-m-1 mb-1 flex items-center gap-2 rounded-lg p-1 hover:bg-hover">
+              <span class:list={['flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[15px] font-semibold tabular-nums', d === today ? 'bg-primary text-primary-ink' : 'bg-panel']}>{fmt(d, { day: 'numeric' })}</span>
+              <span class="min-w-0 flex-1">
+                <span class="block text-sm font-medium">{fmt(d, { weekday: 'long' })}</span>
+                <span class="flex items-center gap-1.5 text-xs text-muted">
+                  {notes.has(d) ? 'Note' : 'No note'}
+                  {reviewed.has(d) && <span class="inline-flex items-center gap-0.5 text-emerald-600" title="Reviewed"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg>Reviewed</span>}
+                </span>
+              </span>
+            </a>
+            {items.length > 0 && (
+              <ul class="mt-1 space-y-0.5">
+                {items.map((e) => <li><Entry e={e} /></li>)}
+              </ul>
+            )}
+          </section>
+        );
+      })}
+    </div>
+  ) : (
+    <div class="mt-6 overflow-hidden rounded-xl border border-line bg-line" data-calendar="month">
+      <div class="grid grid-cols-7 gap-px text-center text-[11px] font-medium uppercase text-muted" aria-hidden="true">
+        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((w) => <span class="bg-panel py-1.5">{w}</span>)}
+      </div>
+      <div class="grid grid-cols-7 gap-px">
+        {days.map((d) => {
+          const items = byDay.get(d) ?? [];
+          return (
+            <div data-day={d} class:list={['flex min-h-16 min-w-0 flex-col p-1 md:min-h-28 md:p-1.5', inRange(d) ? 'bg-card' : 'bg-panel']}>
+              <a href={dayHref(d)} aria-label={ariaDay(d)}
+                class:list={['flex items-center gap-1 self-start rounded-md px-1 text-sm tabular-nums hover:bg-hover', !inRange(d) && 'text-muted/60']}>
+                <span class:list={['flex h-6 min-w-6 items-center justify-center rounded-md', d === today && 'bg-primary px-1 font-semibold text-primary-ink']}>{fmt(d, { day: 'numeric' })}</span>
+                {notes.has(d) && <span class="h-1 w-1 rounded-full bg-ink/45" aria-hidden="true"></span>}
+                {reviewed.has(d) && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="text-emerald-600"><path d="M20 6 9 17l-5-5" /></svg>}
+              </a>
+              {items.length > 0 && (
+                <>
+                  <ul class="mt-1 hidden space-y-0.5 md:block">
+                    {items.slice(0, MONTH_CELL_MAX).map((e) => <li><Entry e={e} compact /></li>)}
+                  </ul>
+                  {items.length > MONTH_CELL_MAX && (
+                    <a href={dayHref(d)} class="mt-0.5 hidden px-1 text-xs text-muted hover:text-ink md:block">+{items.length - MONTH_CELL_MAX} more</a>
+                  )}
+                  <a href={dayHref(d)} class="mt-auto flex flex-wrap gap-0.5 px-1 pb-0.5 md:hidden" aria-hidden="true" tabindex="-1">
+                    {items.slice(0, 6).map((e) => <span class="h-1.5 w-1.5 rounded-full" style={`background:${e.type_color}`}></span>)}
+                  </a>
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  )}
+
+  <script is:inline>
+    // [ and ] page back and forward, t jumps to today, w / m switch view. Not while typing.
+    document.addEventListener('keydown', (e) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
+      const t = e.target;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      const go = (sel) => { const a = document.querySelector(sel); if (a) { e.preventDefault(); location.href = a.href; } };
+      if (e.key === '[') go('[data-prev]');
+      else if (e.key === ']') go('[data-next]');
+      else if (e.key === 't') go('[data-today]');
+      else if (e.key === 'w') go('[role=group][aria-label=View] a:first-child');
+      else if (e.key === 'm') go('[role=group][aria-label=View] a:last-child');
+    });
+  </script>
+</Base>

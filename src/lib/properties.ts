@@ -1,4 +1,5 @@
 import type { PropertyDef, PropertyValue } from './schema';
+import { parseTime } from './format';
 
 /** Turns submitted form fields into clean property values, driven by the type definition. */
 export function parsePropertyForm(defs: PropertyDef[], form: FormData): Record<string, PropertyValue> {
@@ -34,6 +35,9 @@ export function parsePropertyForm(defs: PropertyDef[], form: FormData): Record<s
       }
       case 'date':
         out[def.key] = /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
+        break;
+      case 'time':
+        out[def.key] = parseTime(s);
         break;
       case 'url':
         out[def.key] = /^https?:\/\//i.test(s) ? s : `https://${s}`;

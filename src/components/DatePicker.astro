@@ -24,17 +24,21 @@ interface Props {
   class?: string;
   /** Shown when there is no value. */
   placeholder?: string;
+  /** Navigate mode: where a picked date goes, with {date} for the date. Default: that day's note. */
+  href?: string;
+  /** Show only the calendar icon below the sm breakpoint. */
+  compact?: boolean;
 }
-const { mode, value, today, name, id, label, align = 'left', class: cls = '', placeholder = 'Empty' } = Astro.props;
+const { mode, value, today, name, id, label, align = 'left', class: cls = '', placeholder = 'Empty', href, compact = false } = Astro.props;
 const short = (iso: string) =>
   iso ? new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`)) : '';
 ---
-<div class={`dp relative inline-block ${cls}`} data-dp data-mode={mode} data-value={value} data-today={today ?? ''} data-placeholder={placeholder}>
+<div class={`dp relative inline-block ${cls}`} data-dp data-mode={mode} data-value={value} data-today={today ?? ''} data-placeholder={placeholder} data-href={href}>
   <button type="button" id={id} data-dp-trigger aria-haspopup="dialog" aria-expanded="false"
     aria-label={`${label}: ${value ? dayLabel(value) : 'empty'}`}
     class="field inline-flex w-full items-center gap-2 text-left">
     <Icon name="calendar" size={16} class="shrink-0 text-muted" />
-    <span data-dp-label class:list={['flex-1 truncate', !value && 'text-muted']}>{value ? short(value) : placeholder}</span>
+    <span data-dp-label class:list={['flex-1 truncate', !value && 'text-muted', compact && 'hidden sm:block']}>{value ? short(value) : placeholder}</span>
   </button>
   {mode === 'field' && <input type="hidden" name={name} value={value} data-dp-input />}
   <div data-dp-pop hidden role="dialog" aria-label={label}
@@ -134,7 +138,8 @@ const short = (iso: string) =>
     };
     const pick = (d: string) => {
       if (mode === 'navigate') {
-        window.location.href = d === root.dataset.today ? '/' : `/day/${d}`;
+        const tpl = root.dataset.href;
+        window.location.href = tpl ? tpl.replace('{date}', d) : d === root.dataset.today ? '/' : `/day/${d}`;
         return;
       }
       value = d;

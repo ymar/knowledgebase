@@ -30,6 +30,20 @@ export function addDays(iso: string, n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** "2pm", "2:30 pm", "9.30", "14", "14:00" -> "HH:MM" (24h). Null when it isn't a time. */
+export function parseTime(raw: string): string | null {
+  const m = raw.trim().toLowerCase().match(/^(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm|a|p)?$/);
+  if (!m) return null;
+  let h = Number(m[1]);
+  const min = Number(m[2] ?? 0);
+  const ap = m[3]?.[0];
+  if (ap && (h < 1 || h > 12)) return null;
+  if (ap === 'p' && h < 12) h += 12;
+  if (ap === 'a' && h === 12) h = 0;
+  if (h > 23 || min > 59) return null;
+  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+}
+
 /** Time zone Cloudflare derives from the visitor's IP, when available. */
 export const requestTimeZone = (request: Request): string | undefined =>
   (request as Request & { cf?: { timezone?: string } }).cf?.timezone;

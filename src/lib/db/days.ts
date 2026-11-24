@@ -44,6 +44,8 @@ export async function daysWithNotes(ws: string, from: string, to: string): Promi
 export interface DateReference extends ObjectSummary {
   /** The date property that put it on this day. */
   day_key: string;
+  /** HH:MM from the type's first time property, if set. */
+  time: string | null;
 }
 
 /**
@@ -54,11 +56,13 @@ export async function dateReferences(ws: string, date: string): Promise<DateRefe
   const { results } = await db()
     .prepare(
       `SELECT o.id, o.type_id, o.title, o.updated_at, t.day_key,
+              json_extract(o.properties, '$."' || (SELECT json_extract(p.value, '$.key') FROM json_each(t.properties) p
+                WHERE json_extract(p.value, '$.kind') = 'time' LIMIT 1) || '"') AS time,
               t.name AS type_name, t.slug AS type_slug, t.icon AS type_icon, t.color AS type_color
        FROM objects o JOIN types t ON t.id = o.type_id
        WHERE o.workspace_id = ? AND o.deleted_at IS NULL AND t.day_key IS NOT NULL
          AND json_extract(o.properties, '$."' || t.day_key || '"') = ?
-       ORDER BY t.sort_order, o.title COLLATE NOCASE
+       ORDER BY (time IS NULL), time, t.sort_order, o.title COLLATE NOCASE
        LIMIT 200`,
     )
     .bind(ws, date)
