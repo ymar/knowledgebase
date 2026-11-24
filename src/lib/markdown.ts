@@ -101,6 +101,17 @@ function blocks(list: Block[], titleOf: TitleOf, origin: string, depth = 0): Chu
         line = id ? `[[${titleOf(id, 'Untitled', '')}]]` : '';
         break;
       }
+      case 'math':
+        line = String(p.latex ?? '').trim() ? `$$\n${String(p.latex)}\n$$` : '';
+        break;
+      case 'blockRef': {
+        const id = String(p.objectId ?? '');
+        line = id ? `> ↪ from [[${titleOf(id, 'Untitled', '')}]]` : '';
+        break;
+      }
+      case 'columns':
+        line = '';
+        break;
       case 'image':
         line = `![${String(p.caption || p.name || '')}](${absolute(p.url, origin)})`;
         break;

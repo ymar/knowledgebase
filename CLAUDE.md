@@ -153,6 +153,12 @@ Do not copy Capacities assets, icons, logo or wording.
   ('type' or a property; multi-value properties put an item in each group), `limit`, `random=1`, `blocks=1` (show the
   lines that mention the tag / linked object or contain the words). `runQuery` (`src/lib/query-run.ts`) serves the
   type page and the Query block (`viewResults`), so both show the same thing.
+- More editor blocks (`blocks.tsx`): `/ Math` (`math`, prop `latex`, KaTeX loaded on first use; click to edit, Esc or
+  Cmd+Enter to finish), `/ Columns` (`columns`, prop `count` 2|3; the blocks nested under it sit side by side via CSS
+  grid on its child group, stacked under 640px; Tab / Shift+Tab move blocks in and out), `/ Block reference`
+  (`blockRef`, props `objectId` + `blockId`; read-only live copy of a block from another note, picked from
+  `GET /api/objects/:id/blocks`; counts as a link like an object card). Markdown export: `$$…$$`, `> ↪ from [[Title]]`.
+  Custom blocks sit inside `.react-renderer`, so CSS targets `.bn-block > .react-renderer > .bn-block-content`.
 - `astro dev` runs as a managed background process: stop it with `npx astro dev stop` before `db:reset`.
 
 ## Code rules
@@ -286,7 +292,7 @@ Ranked by value for daily use. SCHEMA items need the SQL approved first.
 
 ### Only if asked (P3)
 
-- [ ] Block references and transclusion (embed another object's block, edit in place).
-- [ ] Math blocks (TeX).
-- [ ] Two-column and group blocks.
-- [ ] Tasks as first-class objects with due date and priority syntax (`!!`, `Friday`).
+- [x] Block references and transclusion (read-only live copy; editing happens in the source).
+- [x] Math blocks (TeX).
+- [x] Two-column and group blocks (Columns block, 2 or 3).
+- [x] Tasks as first-class objects with due date and priority syntax (`!!`, `Friday`).

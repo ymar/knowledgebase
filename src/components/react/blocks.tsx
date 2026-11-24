@@ -235,3 +235,136 @@ export const QueryBlock = createReactBlockSpec(
     ),
   },
 );
+
+/* ---------- math ---------- */
+
+function MathView({ latex, onChange }: { latex: string; onChange: (latex: string) => void }) {
+  const [editing, setEditing] = useState(!latex);
+  const [draft, setDraft] = useState(latex);
+  const [html, setHtml] = useState<{ ok: boolean; out: string }>({ ok: true, out: '' });
+  const source = editing ? draft : latex;
+  useEffect(() => {
+    let live = true;
+    // KaTeX loads on first use, so notes without math don't pay for it.
+    void Promise.all([import('katex'), import('katex/dist/katex.min.css')]).then(([{ default: katex }]) => {
+      if (!live) return;
+      try {
+        setHtml({ ok: true, out: source.trim() ? katex.renderToString(source, { displayMode: true, throwOnError: true }) : '' });
+      } catch (e) {
+        setHtml({ ok: false, out: e instanceof Error ? e.message.replace(/^KaTeX parse error: /, '') : 'Invalid TeX' });
+      }
+    });
+    return () => {
+      live = false;
+    };
+  }, [source]);
+  const done = () => {
+    setEditing(false);
+    if (draft !== latex) onChange(draft);
+  };
+  return (
+    <div className={`${shell} select-text px-4 py-3`} contentEditable={false} data-math>
+      {editing ? (
+        <>
+          <textarea autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={done} rows={Math.min(8, Math.max(2, draft.split('\n').length))}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape' || ((e.metaKey || e.ctrlKey) && e.key === 'Enter')) { e.preventDefault(); done(); }
+              e.stopPropagation();
+            }}
+            placeholder="TeX, e.g. E = mc^2 or \frac{a}{b}" aria-label="TeX source" spellCheck={false}
+            className="w-full resize-y rounded-lg border border-line bg-panel px-3 py-2 font-mono text-sm focus:outline-none" />
+          <div className="mt-2 min-h-6 overflow-x-auto text-center" aria-live="polite">
+            {html.ok ? <span dangerouslySetInnerHTML={{ __html: html.out }} /> : <span className="text-sm text-red-600">{html.out}</span>}
+          </div>
+          <p className="mt-1 text-xs text-muted">Esc or ⌘↵ to finish</p>
+        </>
+      ) : (
+        <button type="button" onClick={() => { setDraft(latex); setEditing(true); }} title="Edit formula"
+          className="block w-full overflow-x-auto text-center">
+          {html.ok ? <span dangerouslySetInnerHTML={{ __html: html.out }} /> : <span className="text-sm text-red-600">{html.out}</span>}
+        </button>
+      )}
+    </div>
+  );
+}
+
+export const MathBlock = createReactBlockSpec(
+  { type: 'math', propSchema: { latex: { default: '' } }, content: 'none' },
+  {
+    render: ({ block, editor }) => <MathView latex={block.props.latex} onChange={(latex) => editor.updateBlock(block, { props: { latex } })} />,
+  },
+);
+
+/* ---------- columns ---------- */
+
+/** A layout block: the blocks nested under it sit side by side (stacked on phones). Tab nests, Shift+Tab un-nests. */
+export const ColumnsBlock = createReactBlockSpec(
+  { type: 'columns', propSchema: { count: { default: '2', values: ['2', '3'] } }, content: 'none' },
+  {
+    render: ({ block, editor }) => (
+      <div className="flex w-full select-none items-center gap-2 text-[11px] uppercase tracking-wider text-muted" contentEditable={false} data-columns={block.props.count}>
+        <span className="h-px flex-1 bg-line" />
+        <button type="button" title="Switch between 2 and 3 columns" className="rounded px-1 hover:bg-hover hover:text-ink"
+          onClick={() => editor.updateBlock(block, { props: { count: block.props.count === '2' ? '3' : '2' } })}>
+          {block.props.count} columns
+        </button>
+        <span className="h-px flex-1 bg-line" />
+      </div>
+    ),
+  },
+);
+
+/* ---------- block reference ---------- */
+
+interface BlockList {
+  id: string;
+  title: string;
+  type: { name: string; icon: string; color: string };
+  blocks: { id: string; text: string; type: string }[];
+}
+
+/** Read-only live copy of one block from another object, with a link to it. Counts as a link to that object. */
+function BlockRefView({ objectId, blockId, onPick }: { objectId: string; blockId: string; onPick: (objectId: string, blockId: string) => void }) {
+  const [pickedObject, setPickedObject] = useState('');
+  const target = objectId || pickedObject;
+  const { data, missing } = useJson<BlockList>(target ? `/api/objects/${target}/blocks` : null);
+  if (!target) return <ObjectPicker onPick={setPickedObject} />;
+  if (missing) return <div className={`${shell} px-4 py-3 text-sm text-muted`} contentEditable={false}>The referenced object is gone.</div>;
+  if (!data) return <div className={`${shell} h-16 animate-pulse`} contentEditable={false} />;
+  if (!blockId) {
+    return (
+      <div className={`${shell} p-2`} contentEditable={false}>
+        <p className="px-2 py-1 text-xs font-medium uppercase tracking-wider text-muted">Pick a block from {data.title}</p>
+        {data.blocks.length === 0 && <p className="px-2 py-2 text-sm text-muted">That note has no text yet.</p>}
+        <ul className="max-h-72 overflow-y-auto">
+          {data.blocks.map((b) => (
+            <li key={b.id}>
+              <button type="button" onMouseDown={(e) => { e.preventDefault(); onPick(target, b.id); }}
+                className="block w-full truncate rounded-lg px-2 py-1.5 text-left text-sm hover:bg-hover">{b.text}</button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+  const b = data.blocks.find((x) => x.id === blockId);
+  const go = (e: React.MouseEvent) => { e.preventDefault(); window.location.href = `/o/${data.id}`; };
+  return (
+    <div className={`${shell} select-text border-l-4 px-4 py-2.5`} contentEditable={false} data-block-ref={blockId} style={{ borderLeftColor: data.type.color }}>
+      <p className="whitespace-pre-wrap text-[15px] leading-relaxed">{b ? b.text : <span className="text-muted">That block was removed from {data.title}.</span>}</p>
+      <a href={`/o/${data.id}`} onClick={go} className="mt-1 inline-flex items-center gap-1.5 text-xs text-muted hover:text-ink">
+        <TypeTile icon={data.type.icon} color={data.type.color} size={16} /> {data.title} ↗
+      </a>
+    </div>
+  );
+}
+
+export const BlockRefBlock = createReactBlockSpec(
+  { type: 'blockRef', propSchema: { objectId: { default: '' }, blockId: { default: '' } }, content: 'none' },
+  {
+    render: ({ block, editor }) => (
+      <BlockRefView objectId={block.props.objectId} blockId={block.props.blockId}
+        onPick={(objectId, blockId) => editor.updateBlock(block, { props: { objectId, blockId } })} />
+    ),
+  },
+);

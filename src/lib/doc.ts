@@ -9,6 +9,7 @@ import { dayLabel } from './format';
 export const MENTION = 'mention';
 export const OBJECT_CARD = 'objectCard';
 export const QUERY_BLOCK = 'query';
+export const BLOCK_REF = 'blockRef';
 
 export interface MentionProps {
   id: string;
@@ -106,7 +107,7 @@ export function extractMentionIds(blocks: Block[]): string[] {
   walk(blocks, (b) => {
     inlineItems(b).forEach((i) => mentionsIn(i, ids));
     // Object card blocks link to their object, like a mention.
-    if (b.type === OBJECT_CARD && typeof b.props?.objectId === 'string' && b.props.objectId) ids.add(b.props.objectId);
+    if ((b.type === OBJECT_CARD || b.type === BLOCK_REF) && typeof b.props?.objectId === 'string' && b.props.objectId) ids.add(b.props.objectId);
   });
   return [...ids];
 }

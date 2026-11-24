@@ -12,7 +12,7 @@ import { BlockNoteView } from '@blocknote/mantine';
 import { codeBlockOptions, syntaxHighlighter } from '@blocknote/code-block';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { TypeTile } from './TypeTile';
-import { EditorEnv, ObjectCardBlock, QueryBlock } from './blocks';
+import { BlockRefBlock, ColumnsBlock, EditorEnv, MathBlock, ObjectCardBlock, QueryBlock } from './blocks';
 
 export interface TypeInfo {
   id: string;
@@ -105,6 +105,9 @@ const schema = BlockNoteSchema.create({
     codeBlock: createCodeBlockSpec(codeBlockOptions),
     objectCard: ObjectCardBlock(),
     query: QueryBlock(),
+    math: MathBlock(),
+    columns: ColumnsBlock(),
+    blockRef: BlockRefBlock(),
   },
   inlineContentSpecs: { ...defaultInlineContentSpecs, mention: Mention },
 });
@@ -403,6 +406,40 @@ export default function Editor(props: {
       group: 'Embeds',
       icon: <TypeTile icon="sliders" color="#78716c" size={22} />,
       onItemClick: () => void insertOrUpdateBlockForSlashMenu(editor, { type: 'query' } as never),
+    },
+    {
+      title: 'Block reference',
+      subtext: 'A live, read-only copy of a block from another note',
+      aliases: ['block', 'reference', 'transclude', 'embed block', 'ref'],
+      group: 'Embeds',
+      icon: <TypeTile icon="link" color="#78716c" size={22} />,
+      onItemClick: () => void insertOrUpdateBlockForSlashMenu(editor, { type: 'blockRef' } as never),
+    },
+    {
+      title: 'Math',
+      subtext: 'A formula in TeX',
+      aliases: ['math', 'tex', 'latex', 'formula', 'equation', 'katex'],
+      group: 'Layout and math',
+      icon: <TypeTile icon="∑" color="#78716c" size={22} />,
+      onItemClick: () => void insertOrUpdateBlockForSlashMenu(editor, { type: 'math' } as never),
+    },
+    {
+      title: 'Columns',
+      subtext: 'Blocks nested under it sit side by side',
+      aliases: ['columns', 'two columns', 'side by side', 'layout', 'grid'],
+      group: 'Layout and math',
+      icon: <TypeTile icon="layout" color="#78716c" size={22} />,
+      onItemClick: () => {
+        const at = editor.getTextCursorPosition().block;
+        const [inserted] = editor.insertBlocks(
+          [{ type: 'columns', children: [{ type: 'paragraph', content: 'Left' }, { type: 'paragraph', content: 'Right' }] } as never],
+          at, 'after',
+        );
+        const cur = at as { type: string; content?: unknown };
+        if (cur.type === 'paragraph' && Array.isArray(cur.content) && (cur.content as unknown[]).length === 0) editor.removeBlocks([at]);
+        const first = (inserted as { children?: { id: string }[] } | undefined)?.children?.[0];
+        if (first) editor.setTextCursorPosition(first.id, 'end');
+      },
     },
   ];
 
