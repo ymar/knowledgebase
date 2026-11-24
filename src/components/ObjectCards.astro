@@ -24,7 +24,7 @@ const title = (o: ObjectCard) => (o.type_id === 'type_day' ? dayLabel(o.title) :
 ) : view === 'cards' ? (
   <ul class="grid gap-3 sm:grid-cols-2">
     {items.map((o) => (
-      <li>
+      <li data-select={o.id}>
         <a href={`/o/${o.id}`} class="card flex h-full flex-col p-4">
           <span class="flex items-center gap-2.5">
             <TypeTile icon={o.type_icon} color={o.type_color} size="sm" />
@@ -46,7 +46,7 @@ const title = (o: ObjectCard) => (o.type_id === 'type_day' ? dayLabel(o.title) :
 ) : (
   <ul class="divide-y divide-line overflow-hidden rounded-xl border border-line bg-card">
     {items.map((o) => (
-      <li>
+      <li data-select={o.id}>
         <a href={`/o/${o.id}`} class="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-hover">
           <TypeTile icon={o.type_icon} color={o.type_color} size="sm" />
           <span class="min-w-0 flex-1 truncate text-[15px]">{title(o)}</span>

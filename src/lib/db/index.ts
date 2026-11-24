@@ -28,3 +28,4 @@ export * from './workspaces';
 export * from './tasks';
 export * from './views';
 export * from './collections';
+export * from './bulk';

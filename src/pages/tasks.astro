@@ -4,7 +4,8 @@ import TaskList from '../components/TaskList.astro';
 import TaskBoard from '../components/TaskBoard.astro';
 import DatePicker from '../components/DatePicker.astro';
 import Icon from '../components/Icon.astro';
-import { allTasks, getTypeById, listViews, taskBoard, taskTypeIdFor } from '../lib/db';
+import { allTags, allTasks, getTypeById, listCollections, listViews, taskBoard, taskTypeIdFor } from '../lib/db';
+import BulkBar from '../components/BulkBar.astro';
 import { requestTimeZone, todayIn } from '../lib/format';
 import { specToQuery } from '../lib/view-results';
 
@@ -19,6 +20,8 @@ const tab: Tab = (TABS.find(([k]) => k === tabParam)?.[0] ?? 'today') as Tab;
 const [t, board, taskType, views] = typeId
   ? await Promise.all([allTasks(ws.id, today), tab === 'board' ? taskBoard(ws.id) : null, getTypeById(typeId), listViews(typeId)])
   : [null, null, null, []];
+const [bulkTags, bulkCollections] = typeId ? await Promise.all([allTags(ws.id), listCollections(typeId)]) : [[], []];
+const notice = Astro.url.searchParams.get('notice');
 const counts: Record<Tab, number | null> = t
   ? { today: t.today.filter((x) => !x.done).length, inbox: t.inbox.length, scheduled: t.scheduled.length, open: t.open.length, board: null, completed: null }
   : { today: null, inbox: null, scheduled: null, open: null, board: null, completed: null };
@@ -54,7 +57,8 @@ const empty: Record<Tab, string> = {
         <button class="btn-primary" type="submit"><Icon name="plus" size={16} /> <span class="hidden sm:inline">Add</span></button>
       </form>
 
-      <nav aria-label="Task views" class="mt-6 flex gap-1 overflow-x-auto rounded-lg bg-panel p-1 text-sm">
+      <div class="mt-6 flex items-center gap-2">
+      <nav aria-label="Task views" class="flex min-w-0 flex-1 gap-1 overflow-x-auto rounded-lg bg-panel p-1 text-sm">
         {TABS.map(([key, name]) => (
           <a href={`/tasks?tab=${key}`} aria-current={tab === key ? 'page' : undefined}
             class="shrink-0 rounded-md px-2.5 py-1 text-muted hover:text-ink aria-[current=page]:bg-card aria-[current=page]:text-ink aria-[current=page]:shadow-xs">
@@ -67,6 +71,9 @@ const empty: Record<Tab, string> = {
           </a>
         ))}
       </nav>
+      <BulkBar defs={taskType!.properties} tags={bulkTags.map((x) => x.title)} collections={bulkCollections.map((c) => c.name)} back={`/tasks?tab=${tab}`} />
+      </div>
+      {notice && <p role="status" class="mt-4 rounded-lg border border-line bg-card px-3 py-2 text-sm text-muted">{notice}</p>}
 
       {tab === 'board' && board && <TaskBoard columns={board} today={today} />}
       {tab === 'today' && <TaskList today={today} always heading="" groups={[{ key: 'today', label: 'Today', items: t!.today }]} />}

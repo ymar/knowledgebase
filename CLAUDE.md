@@ -105,6 +105,12 @@ Do not copy Capacities assets, icons, logo or wording.
   (repeating tasks move on). Objects' Tasks section toggles List/Board (`?tasks=board`). Time (migration 0013, "2pm",
   "14:00") sorts Today. Subtasks = checkboxes in a task's note, counted with `json_tree` (progress ring).
   Sidebar Tasks has a "+" (`[data-quick-task]`) that opens the palette in task mode.
+- Bulk actions (`BulkBar.astro`, `POST /api/bulk`, `src/lib/db/bulk.ts`): "Select" on type pages and the Tasks page;
+  rows with `data-select="<id>"` become selectable (click/Space selects, Ctrl/Cmd+A all, Esc stops). Actions: set a
+  property (one type; multi-select adds a value; relations excluded; a task's Done goes through `completeTask`),
+  add tag, add to collection, move to trash. Only objects in the current workspace are touched.
+- Styling: `.field`, `.btn`, `.btn-primary`, `.card`, `.eyebrow`, `kbd` live in `@layer components`, so utilities on
+  the same element (w-auto, px-2, py-1.5) override them.
 - MCP server at `/mcp` (`src/lib/mcp/server.ts`, MCP SDK v2 `createMcpHandler`, stateless). Tools: list_workspaces,
   list_types, search, get_object, list_objects, get_daily_note, append_to_daily_note, create_object, update_object,
   create_type, add_properties, list_tasks, create_task, set_task_status, complete_task. No deletes. Markdown in, via `src/lib/from-markdown.ts` ([[Title]] links).
@@ -222,7 +228,7 @@ Ranked by value for daily use. SCHEMA items need the SQL approved first.
       block in any note (Capacities' query blocks). Replaces "Saved queries" above.
 - [x] **N4 Collections** (as above).
 - [x] **N5 Object embeds / cards** in the editor (as above), then block references (P3).
-- [ ] **N6 Bulk actions** on type pages: select several, set a property, tag, move to trash.
+- [x] **N6 Bulk actions** on type pages: select several, set a property, tag, move to trash.
 - [ ] **N7 Aliases**: extra names per object, used by `@` search and unlinked mentions.
 - [ ] **N8 Calendar depth**: a time property and times on scheduled objects; week and month views;
       a "reviewed" mark on daily notes.
@@ -238,7 +244,7 @@ Ranked by value for daily use. SCHEMA items need the SQL approved first.
       tasks to tomorrow", and tasks completed on a day shown on that day's note (needs a done date).
 - [ ] **Queries, closer to Capacities**: several types in one query, filters on tags / backlinks / words,
       group by a property, a limit (also random), and queries that include blocks.
-- [ ] **Bulk actions** (N6): see docs.capacities.io/reference/bulk-actions.
+- [x] **Bulk actions** (N6): see docs.capacities.io/reference/bulk-actions.
 - Calendar integrations (Google/Outlook sync) stay out of scope: third-party integrations.
 
 ### Only if asked (P3)

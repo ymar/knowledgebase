@@ -20,7 +20,7 @@ const PRIO: Record<string, string> = { High: '!!!', Medium: '!!', Low: '!' };
       </h3>
       <ul data-cards class="flex min-h-16 flex-1 flex-col gap-2">
         {columns[col].map((t) => (
-          <li draggable="true" data-card={t.id}
+          <li draggable="true" data-select={t.id} data-card={t.id}
             class="relative cursor-grab rounded-lg border border-line bg-card p-2.5 shadow-xs active:cursor-grabbing">
             <a href={`/o/${t.id}`} class:list={['block text-sm leading-snug hover:underline', col === 'Done' && 'text-muted line-through']}>
               {t.priority && <span class="mr-1 text-xs font-bold text-amber-600">{PRIO[t.priority]}</span>}{t.title || 'Untitled'}

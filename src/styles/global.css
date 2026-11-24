@@ -62,6 +62,8 @@ body { -webkit-tap-highlight-color: transparent; }
 
 .tile { color: var(--c); background: color-mix(in srgb, var(--c) var(--tint), transparent); }
 
+/* Components live in Tailwind's components layer, so utilities on the same element (w-auto, px-2, py-1.5) win. */
+@layer components {
 .field {
   @apply w-full rounded-lg border border-line bg-card px-3 py-2 text-[15px] text-ink placeholder:text-muted
          transition-colors focus:border-ink/40 focus:outline-none;
@@ -79,6 +81,7 @@ body { -webkit-tap-highlight-color: transparent; }
 }
 .eyebrow { @apply text-xs font-medium uppercase tracking-wider text-muted; }
 kbd { @apply rounded border border-line bg-card px-1.5 py-0.5 font-sans text-[11px] text-muted; }
+}
 
 /* ---------- editor ---------- */
 .editor-shell { position: relative; min-height: 12rem; }

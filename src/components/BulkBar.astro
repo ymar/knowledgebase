@@ -1,0 +1,177 @@
+---
+/**
+ * Bulk actions for a list page. "Select" turns on selection: rows with `data-select="<id>"`
+ * get a checkbox and clicks select instead of navigating. A bar at the bottom applies one
+ * action to the selection (set property, add tag, add to collection, move to trash).
+ * Keyboard: Esc leaves selection, Ctrl/Cmd+A selects everything visible.
+ */
+import type { PropertyDef } from '../lib/schema';
+
+interface Props {
+  /** Properties that can be set (relations are left out). */
+  defs: PropertyDef[];
+  tags: string[];
+  collections: string[];
+  back: string;
+}
+const { tags, collections, back } = Astro.props;
+const defs = Astro.props.defs.filter((d) => d.kind !== 'relation');
+---
+<button type="button" data-bulk-toggle aria-pressed="false" class="btn py-1 text-sm">Select</button>
+
+<form data-bulk-bar method="post" action="/api/bulk" hidden
+  class="fixed inset-x-3 bottom-3 z-40 mx-auto flex max-w-3xl flex-wrap items-center gap-2 rounded-xl border border-line bg-card p-2.5 shadow-xl md:left-[calc(15.5rem+1rem)]">
+  <input type="hidden" name="back" value={back} />
+  <span data-bulk-count class="px-1.5 text-sm font-medium tabular-nums" aria-live="polite">0 selected</span>
+  <button type="button" data-bulk-all class="rounded-md px-2 py-1 text-xs text-muted hover:bg-hover hover:text-ink">All</button>
+  <span class="hidden h-5 w-px bg-line sm:block"></span>
+
+  <label class="sr-only" for="bulk-action">Action</label>
+  <select id="bulk-action" name="action" class="field w-auto py-1.5 text-sm" data-bulk-action>
+    {defs.length > 0 && <option value="set-property">Set property</option>}
+    <option value="add-tag">Add tag</option>
+    {collections !== null && <option value="add-collection">Add to collection</option>}
+    <option value="trash">Move to trash</option>
+  </select>
+
+  <span data-for-action="set-property" class="contents">
+    <label class="sr-only" for="bulk-key">Property</label>
+    <select id="bulk-key" name="key" class="field w-auto py-1.5 text-sm" data-bulk-key>
+      {defs.map((d) => <option value={d.key} data-kind={d.kind}>{d.label}</option>)}
+    </select>
+    {defs.map((d) => (
+      <span data-for-key={d.key} class="contents">
+        {d.kind === 'select' || d.kind === 'multiselect' ? (
+          <select name="value" aria-label={`${d.label} value`} class="field w-auto py-1.5 text-sm" disabled>
+            {d.kind === 'select' && <option value="">Empty</option>}
+            {(d.options ?? []).map((o) => <option value={o}>{d.kind === 'multiselect' ? `Add ${o}` : o}</option>)}
+          </select>
+        ) : d.kind === 'checkbox' ? (
+          <select name="value" aria-label={`${d.label} value`} class="field w-auto py-1.5 text-sm" disabled>
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+        ) : (
+          <input name="value" aria-label={`${d.label} value`} placeholder={d.kind === 'date' ? 'YYYY-MM-DD' : 'Value (empty clears)'}
+            type={d.kind === 'date' ? 'date' : d.kind === 'number' ? 'number' : 'text'} class="field w-40 py-1.5 text-sm" disabled />
+        )}
+      </span>
+    ))}
+  </span>
+  <span data-for-action="add-tag" class="contents">
+    <input name="tag" list="bulk-tags" aria-label="Tag" placeholder="Tag name" autocomplete="off" class="field w-40 py-1.5 text-sm" />
+    <datalist id="bulk-tags">{tags.map((t) => <option value={t} />)}</datalist>
+  </span>
+  <span data-for-action="add-collection" class="contents">
+    <input name="collection" list="bulk-collections" aria-label="Collection" placeholder="Collection name" autocomplete="off" class="field w-44 py-1.5 text-sm" />
+    <datalist id="bulk-collections">{collections.map((c) => <option value={c} />)}</datalist>
+  </span>
+
+  <span class="flex-1"></span>
+  <button type="submit" class="btn-primary py-1.5" data-bulk-apply>Apply</button>
+  <button type="button" data-bulk-cancel class="rounded-md px-2 py-1.5 text-sm text-muted hover:bg-hover hover:text-ink">Cancel</button>
+</form>
+
+<style is:global>
+  [data-selecting] [data-select] { position: relative; cursor: pointer; user-select: none; }
+  [data-selecting] [data-select]::before {
+    content: ''; position: absolute; left: 0.6rem; top: 50%; translate: 0 -50%; z-index: 2;
+    width: 1.05rem; height: 1.05rem; border-radius: 0.3rem; border: 1.5px solid color-mix(in srgb, var(--ink) 35%, transparent); background: var(--card);
+  }
+  [data-selecting] [data-select] { padding-left: 2.25rem !important; }
+  [data-selecting] [data-select][aria-selected='true'] { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+  [data-selecting] [data-select][aria-selected='true']::before {
+    background: var(--primary) center / 0.75rem no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E"); border-color: var(--primary);
+  }
+  [data-theme='dark'] [data-selecting] [data-select][aria-selected='true']::before { filter: invert(1); }
+</style>
+
+<script>
+  const root = document.body;
+  const toggle = document.querySelector<HTMLElement>('[data-bulk-toggle]');
+  const bar = document.querySelector<HTMLFormElement>('[data-bulk-bar]');
+  if (toggle && bar) {
+    const count = bar.querySelector<HTMLElement>('[data-bulk-count]')!;
+    const rows = () => [...document.querySelectorAll<HTMLElement>('[data-select]')].filter((r) => r.offsetParent !== null);
+    const selected = () => rows().filter((r) => r.getAttribute('aria-selected') === 'true');
+    const update = () => {
+      const n = selected().length;
+      count.textContent = `${n} selected`;
+      (bar.querySelector('[data-bulk-apply]') as unknown as { disabled: boolean }).disabled = n === 0;
+    };
+    const setMode = (on: boolean) => {
+      if (on) root.dataset.selecting = '';
+      else delete root.dataset.selecting;
+      bar.hidden = !on;
+      toggle.setAttribute('aria-pressed', String(on));
+      toggle.textContent = on ? 'Done' : 'Select';
+      rows().forEach((r) => (on ? r.setAttribute('aria-selected', 'false') : r.removeAttribute('aria-selected')));
+      if (on) rows().forEach((r) => (r.tabIndex = 0));
+      update();
+    };
+    toggle.addEventListener('click', () => setMode(!('selecting' in root.dataset)));
+    bar.querySelector('[data-bulk-cancel]')!.addEventListener('click', () => setMode(false));
+    bar.querySelector('[data-bulk-all]')!.addEventListener('click', () => {
+      const all = selected().length < rows().length;
+      rows().forEach((r) => r.setAttribute('aria-selected', String(all)));
+      update();
+    });
+    // While selecting, a click (or Space/Enter on a focused row) selects instead of opening or ticking.
+    const pick = (row: HTMLElement) => {
+      row.setAttribute('aria-selected', String(row.getAttribute('aria-selected') !== 'true'));
+      update();
+    };
+    document.addEventListener('click', (e) => {
+      if (!('selecting' in root.dataset)) return;
+      const row = (e.target as HTMLElement).closest<HTMLElement>('[data-select]');
+      if (!row) return;
+      e.preventDefault();
+      e.stopPropagation();
+      pick(row);
+    }, true);
+    document.addEventListener('keydown', (e) => {
+      if (!('selecting' in root.dataset)) return;
+      const t = e.target as HTMLElement;
+      if (e.key === 'Escape') return setMode(false);
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a' && !/^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) {
+        e.preventDefault();
+        rows().forEach((r) => r.setAttribute('aria-selected', 'true'));
+        return update();
+      }
+      const row = t.closest?.('[data-select]') as HTMLElement | null;
+      if (row && (e.key === ' ' || e.key === 'Enter')) {
+        e.preventDefault();
+        pick(row);
+      }
+    }, true);
+
+    // Show only the inputs for the chosen action and property; disabled inputs aren't submitted.
+    const action = bar.querySelector('[data-bulk-action]') as unknown as { value: string; addEventListener: HTMLElement['addEventListener'] };
+    const key = bar.querySelector('[data-bulk-key]') as unknown as { value: string; addEventListener: HTMLElement['addEventListener'] } | null;
+    const sync = () => {
+      bar.querySelectorAll<HTMLElement>('[data-for-action]').forEach((el) => (el.style.display = el.dataset.forAction === action.value ? '' : 'none'));
+      bar.querySelectorAll<HTMLElement>('[data-for-key]').forEach((el) => {
+        const on = action.value === 'set-property' && el.dataset.forKey === key?.value;
+        el.style.display = on ? '' : 'none';
+        el.querySelectorAll<HTMLElement>('input, select').forEach((i) => ((i as unknown as { disabled: boolean }).disabled = !on));
+      });
+    };
+    action.addEventListener('change', sync);
+    key?.addEventListener('change', sync);
+    sync();
+
+    bar.addEventListener('submit', (e) => {
+      bar.querySelectorAll('input[name=ids]').forEach((i) => i.remove());
+      const ids = selected().map((r) => r.dataset.select!);
+      if (!ids.length) return e.preventDefault();
+      if (action.value === 'trash' && !confirm(`Move ${ids.length} to the trash? You can restore them from Trash.`)) return e.preventDefault();
+      for (const id of ids) {
+        const i = document.createElement('input');
+        i.type = 'hidden';
+        i.name = 'ids';
+        i.value = id;
+        bar.appendChild(i);
+      }
+    });
+  }
+</script>

@@ -78,7 +78,7 @@ const openToMove = moveOpen
             const prio = t.priority ? PRIO[t.priority] : null;
             const ctx = relationIds(safeParse(t.context)).map((id) => contexts[id]).filter(Boolean);
             return (
-              <li class="flex items-center gap-3 px-3.5 py-2.5" data-task={t.id} data-done={t.done ? 'true' : 'false'} data-repeat={t.repeat ?? undefined}>
+              <li class="flex items-center gap-3 px-3.5 py-2.5" data-select={t.id} data-task={t.id} data-done={t.done ? 'true' : 'false'} data-repeat={t.repeat ?? undefined}>
                 <button type="button" role="checkbox" aria-checked={t.done ? 'true' : 'false'} aria-label={`Done: ${t.title}`} data-toggle
                   class="task-box flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-ink/30 text-primary-ink transition aria-checked:border-primary aria-checked:bg-primary">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="check"><path d="M20 6 9 17l-5-5" /></svg>
