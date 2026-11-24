@@ -204,3 +204,33 @@ export function replaceMentions(blocks: Block[], fromId: string, to: MentionProp
   walk(doc, (b) => inlineItems(b).forEach(fix));
   return doc;
 }
+
+export interface ChecklistItem { blockId: string; text: string }
+
+/** Unticked checklist items (any depth) with their block ids. */
+export function openChecklistItems(blocks: Block[], title?: TitleLookup): ChecklistItem[] {
+  const out: ChecklistItem[] = [];
+  walk(blocks, (b) => {
+    if (b.type === 'checkListItem' && !b.props?.checked && b.id) {
+      const text = blockText(b, title).trim();
+      if (text) out.push({ blockId: b.id, text });
+    }
+  });
+  return out;
+}
+
+/** Copy of the document with one checklist item ticked or unticked; null if the block isn't there. */
+export function setChecklistItem(blocks: Block[], blockId: string, checked: boolean): Block[] | null {
+  let found = false;
+  const map = (list: Block[]): Block[] =>
+    list.map((b) => {
+      const next = { ...b, children: b.children ? map(b.children) : b.children };
+      if (b.id === blockId && b.type === 'checkListItem') {
+        found = true;
+        next.props = { ...(b.props ?? {}), checked };
+      }
+      return next;
+    });
+  const out = map(blocks);
+  return found ? out : null;
+}

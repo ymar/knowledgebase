@@ -136,6 +136,10 @@ Do not copy Capacities assets, icons, logo or wording.
   keeps `_` keys. Summary queries select `icon`; `TypeTile` takes `emoji` and shows it instead of the type icon (lists,
   cards, pinned, palette, @ menu). Object page: `IconPicker` / `CoverPicker`, actions set-icon, remove-icon, set-cover
   (preset or image upload to R2), remove-cover. MCP `update_object` takes `icon`.
+- Checklists (no schema): Tasks › Checklists lists unticked `checkListItem` blocks from every non-task object
+  (`objectsWithOpenChecklists` finds them with `json_tree`; `openChecklistItems` in doc.ts extracts them). Ticking
+  posts `POST /api/objects/:id/checklist {blockId, checked}`, which rewrites that block and saves the note. Not on
+  Home on purpose: today's open editor would overwrite the change on its next autosave.
 - `astro dev` runs as a managed background process: stop it with `npx astro dev stop` before `db:reset`.
 
 ## Code rules
@@ -230,8 +234,7 @@ Items marked SCHEMA need approval of the SQL before building.
 - [ ] **Saved queries** SCHEMA: store a type page's filter/sort as a named view. `views (id, type_id, name, spec JSON)`.
 - [ ] **Object cards in the editor**: a custom BlockNote block that renders a linked object as a small or wide
       card (title, type tile, two properties).
-- [ ] **Open to-dos across objects**: extract checklist items on save into a `todos` table
-      (`object_id, block_id, text, done`) and show an "Open to-dos" list on the home page. SCHEMA.
+- [x] **Open to-dos across objects**: built without a table, read from note content (Tasks › Checklists).
 - [x] **Object icon/emoji and cover image**: built without schema, as hidden properties `_icon` and `_cover`.
 - [x] **Quick capture**: a global shortcut and a phone-friendly button that appends a line to today's note.
 

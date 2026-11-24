@@ -6,13 +6,14 @@ import DatePicker from '../components/DatePicker.astro';
 import Icon from '../components/Icon.astro';
 import { allTags, allTasks, getTypeById, listCollections, listViews, taskBoard, taskTypeIdFor } from '../lib/db';
 import BulkBar from '../components/BulkBar.astro';
+import ChecklistList from '../components/ChecklistList.astro';
 import { requestTimeZone, todayIn } from '../lib/format';
 import { specToQuery } from '../lib/view-results';
 
 const ws = Astro.locals.workspace;
 const today = todayIn(requestTimeZone(Astro.request));
 const typeId = await taskTypeIdFor(ws.id);
-const TABS = [['today', 'Today'], ['inbox', 'Inbox'], ['scheduled', 'Scheduled'], ['open', 'Open'], ['board', 'Board'], ['completed', 'Completed']] as const;
+const TABS = [['today', 'Today'], ['inbox', 'Inbox'], ['scheduled', 'Scheduled'], ['open', 'Open'], ['board', 'Board'], ['checklists', 'Checklists'], ['completed', 'Completed']] as const;
 type Tab = (typeof TABS)[number][0];
 const tabParam = Astro.url.searchParams.get('tab');
 const tab: Tab = (TABS.find(([k]) => k === tabParam)?.[0] ?? 'today') as Tab;
@@ -23,8 +24,8 @@ const [t, board, taskType, views] = typeId
 const [bulkTags, bulkCollections] = typeId ? await Promise.all([allTags(ws.id), listCollections(typeId)]) : [[], []];
 const notice = Astro.url.searchParams.get('notice');
 const counts: Record<Tab, number | null> = t
-  ? { today: t.today.filter((x) => !x.done).length, inbox: t.inbox.length, scheduled: t.scheduled.length, open: t.open.length, board: null, completed: null }
-  : { today: null, inbox: null, scheduled: null, open: null, board: null, completed: null };
+  ? { today: t.today.filter((x) => !x.done).length, inbox: t.inbox.length, scheduled: t.scheduled.length, open: t.open.length, board: null, checklists: null, completed: null }
+  : { today: null, inbox: null, scheduled: null, open: null, board: null, checklists: null, completed: null };
 
 // Scheduled: one group per day (the planned date, else the deadline), overdue days first.
 const dayOf = (x: { date: string | null; deadline: string | null }) => x.date ?? x.deadline ?? '';
@@ -39,6 +40,7 @@ const empty: Record<Tab, string> = {
   scheduled: 'Nothing scheduled for later.',
   open: 'No open tasks.',
   board: '',
+  checklists: '',
   completed: 'Nothing completed yet.',
 };
 ---
@@ -80,6 +82,7 @@ const empty: Record<Tab, string> = {
       {tab === 'inbox' && <TaskList today={today} always heading="" groups={[{ key: 'inbox', label: 'Inbox', items: t!.inbox }]} />}
       {tab === 'scheduled' && <TaskList today={today} always heading="" groups={scheduledGroups} />}
       {tab === 'open' && <TaskList today={today} always heading="" groups={[{ key: 'open', label: 'Open', items: t!.open }]} />}
+      {tab === 'checklists' && <ChecklistList ws={ws.id} />}
       {tab === 'completed' && <TaskList today={today} always heading="" groups={[{ key: 'done', label: 'Completed', items: t!.done }]} />}
       {tab !== 'board' && (
         (tab === 'today' && t!.today.length === 0) || (tab === 'inbox' && t!.inbox.length === 0) ||

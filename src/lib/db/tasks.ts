@@ -217,3 +217,27 @@ export async function taskTypeIdFor(ws: string): Promise<string | null> {
     .first<{ id: string }>();
   return r?.id ?? null;
 }
+
+export interface ChecklistSource extends ObjectSummary {
+  content: string;
+}
+
+/**
+ * Objects (not tasks) whose note has an unticked checklist item, newest edit first. The caller
+ * extracts the items (doc.ts `openChecklistItems`). Tasks keep theirs as subtasks.
+ */
+export async function objectsWithOpenChecklists(ws: string, limit = 100): Promise<ChecklistSource[]> {
+  const { results } = await db()
+    .prepare(
+      `SELECT o.id, o.type_id, o.title, o.updated_at, json_extract(o.properties, '$._icon') AS icon, o.content,
+              t.name AS type_name, t.slug AS type_slug, t.icon AS type_icon, t.color AS type_color
+       FROM objects o JOIN types t ON t.id = o.type_id
+       WHERE o.workspace_id = ? AND o.deleted_at IS NULL AND NOT ${TASK_TYPE_SQL}
+         AND EXISTS (SELECT 1 FROM json_tree(o.content) j WHERE j.key = 'checked' AND j.value = 0)
+       ORDER BY o.updated_at DESC
+       LIMIT ?`,
+    )
+    .bind(ws, limit)
+    .all<ChecklistSource>();
+  return results;
+}

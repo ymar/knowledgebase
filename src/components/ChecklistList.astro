@@ -1,0 +1,67 @@
+---
+/**
+ * Open checklist items across notes, grouped by the object they're in. Ticking writes the
+ * item back into that note. Items vanish on the next load once ticked.
+ */
+import TypeTile from './TypeTile.astro';
+import { objectsWithOpenChecklists, getSummaries, parseJson } from '../lib/db';
+import { openChecklistItems, extractMentionIds, type Block } from '../lib/doc';
+import { dayLabel } from '../lib/format';
+
+interface Props { ws: string }
+const sources = await objectsWithOpenChecklists(Astro.props.ws);
+const docs = sources.map((s) => ({ s, blocks: parseJson<Block[]>(s.content, []) }));
+const titles = await getSummaries([...new Set(docs.flatMap((d) => extractMentionIds(d.blocks)))]);
+const groups = docs
+  .map(({ s, blocks }) => ({ s, items: openChecklistItems(blocks, (id) => titles[id]?.title) }))
+  .filter((g) => g.items.length > 0);
+const total = groups.reduce((n, g) => n + g.items.length, 0);
+---
+{groups.length === 0 ? (
+  <p class="mt-6 text-sm text-muted">No open checklist items. Type <kbd>[]</kbd> in any note to start a checklist; unticked items gather here.</p>
+) : (
+  <div class="mt-6 space-y-5" data-checklists data-total={total}>
+    {groups.map(({ s, items }) => (
+      <section aria-label={s.type_id === 'type_day' ? dayLabel(s.title) : s.title || 'Untitled'}>
+        <a href={s.type_id === 'type_day' ? `/day/${s.title}` : `/o/${s.id}`} class="mb-1.5 inline-flex items-center gap-2 text-sm font-medium hover:underline">
+          <TypeTile icon={s.type_icon} color={s.type_color} size="sm" emoji={s.icon} />
+          {s.type_id === 'type_day' ? dayLabel(s.title) : s.title || 'Untitled'}
+          <span class="text-xs font-normal tabular-nums text-muted">{items.length}</span>
+        </a>
+        <ul class="divide-y divide-line overflow-hidden rounded-xl border border-line bg-card">
+          {items.map((it) => (
+            <li class="flex items-center gap-3 px-3.5 py-2.5" data-check-item={it.blockId} data-object={s.id} data-done="false">
+              <button type="button" role="checkbox" aria-checked="false" aria-label={`Done: ${it.text}`} data-check
+                class="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-ink/30 text-primary-ink transition aria-checked:border-primary aria-checked:bg-primary">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="check opacity-0"><path d="M20 6 9 17l-5-5" /></svg>
+              </button>
+              <span class="min-w-0 flex-1 text-[15px]" data-text>{it.text}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+    ))}
+  </div>
+)}
+
+<style is:global>
+  [data-check-item][data-done='true'] [data-text] { text-decoration: line-through; color: var(--muted); }
+  [data-check-item][data-done='true'] .check { opacity: 1; }
+</style>
+
+<script>
+  document.querySelector('[data-checklists]')?.addEventListener('click', async (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-check]');
+    const row = btn?.closest<HTMLElement>('[data-check-item]');
+    if (!btn || !row) return;
+    const next = row.dataset.done !== 'true';
+    const set = (v: boolean) => { row.dataset.done = String(v); btn.setAttribute('aria-checked', String(v)); };
+    set(next);
+    const res = await fetch(`/api/objects/${row.dataset.object}/checklist`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ blockId: row.dataset.checkItem, checked: next }),
+    }).catch(() => null);
+    if (!res?.ok) set(!next);
+  });
+</script>
