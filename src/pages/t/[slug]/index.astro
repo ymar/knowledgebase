@@ -195,8 +195,14 @@ const hasFilters = params.filters.length > 0 || params.sort.key !== 'updated';
           <select name="op" class="field" aria-label="Condition">
             {Object.entries(OPS).map(([k, label]) => <option value={k} selected={f.op === k}>{label}</option>)}
           </select>
-          <input name="v" value={f.value} class="field col-span-2 sm:col-span-1" aria-label="Value" placeholder="Value"
-            type={kindOf(f.key) === 'date' ? 'date' : kindOf(f.key) === 'number' ? 'number' : 'text'} />
+          <div class="col-span-2 min-w-0 sm:col-span-1" data-v-wrap>
+            <input name="v" value={kindOf(f.key) === 'date' ? '' : f.value} class:list={['field', kindOf(f.key) === 'date' && 'hidden']}
+              disabled={kindOf(f.key) === 'date'} aria-label="Value" placeholder="Value" data-v-text
+              type={kindOf(f.key) === 'number' ? 'number' : 'text'} />
+            <div data-v-date class:list={[kindOf(f.key) !== 'date' && 'hidden']}>
+              <DatePicker mode="field" name="v" value={kindOf(f.key) === 'date' ? f.value : ''} label="Value" placeholder="Pick a date" class="w-full" />
+            </div>
+          </div>
         </div>
       ))}
       <div class="flex flex-wrap items-center gap-2 pt-2">
@@ -231,13 +237,22 @@ const hasFilters = params.filters.length > 0 || params.sort.key !== 'updated';
   </div>
 
   <script is:inline>
-    // Value input follows the chosen property's kind (date picker, number pad).
+    // Value input follows the chosen property's kind: the date picker for dates, a number pad for numbers.
+    // The unused input is disabled so each row still submits exactly one value.
+    const sync = (sel) => {
+      const kind = sel.selectedOptions[0]?.dataset.kind;
+      const row = sel.parentElement;
+      const text = row.querySelector('[data-v-text]');
+      const date = row.querySelector('[data-v-date]');
+      const dateInput = date.querySelector('[data-dp-input]');
+      const isDate = kind === 'date';
+      text.hidden = isDate; text.classList.toggle('hidden', isDate); text.disabled = isDate;
+      date.classList.toggle('hidden', !isDate); dateInput.disabled = !isDate;
+      text.type = kind === 'number' ? 'number' : 'text';
+    };
     document.querySelectorAll('[data-filter-key]').forEach((sel) => {
-      sel.addEventListener('change', () => {
-        const kind = sel.selectedOptions[0]?.dataset.kind;
-        const input = sel.parentElement.querySelector('input[name=v]');
-        input.type = kind === 'date' ? 'date' : kind === 'number' ? 'number' : 'text';
-      });
+      sync(sel);
+      sel.addEventListener('change', () => sync(sel));
     });
   </script>
 </Base>

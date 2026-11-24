@@ -66,7 +66,8 @@ Do not copy Capacities assets, icons, logo or wording.
   with `json_each` in `listTypes`; unlisted types follow by `sort_order`. Day and Tag are ordered per workspace too.
 - Dates are picked with `src/components/DatePicker.astro` (own calendar, Monday-first, keyboard: arrows,
   PageUp/Down, Home/End, Enter, Esc). `navigate` mode opens a day note; `field` mode fills a hidden input.
-  Native date inputs remain only in the type-page filter row. Theme: `theme` cookie -> `<html data-theme>`.
+  No native date inputs remain: the type-page filter row and the bulk bar use it too (the unused input is
+  disabled so rows stay parallel). Theme: `theme` cookie -> `<html data-theme>`.
 - App name in the UI and tab title is "KB".
 - Daily notes work like Capacities' calendar quick actions (migration 0009): `types.day_key` names the date
   property that ties a type to days (set under "Daily notes" in the type editor; NULL = off; Project uses Due by
@@ -258,7 +259,7 @@ Ranked by value for daily use. SCHEMA items need the SQL approved first.
       a "reviewed" mark on daily notes.
 - [x] **N9 Icons/covers** and quick capture.
 - [ ] **Small**: move an object to another workspace; Day/Tag switchable per workspace; date picker in the
-      filter row; "+ Type" buttons on other object pages (KB's own idea, not in Capacities).
+      filter row [done]; "+ Type" buttons on other object pages (KB's own idea, not in Capacities).
 
 ### Follow-ups from the Capacities docs (tasks, queries, collections, bulk actions)
 

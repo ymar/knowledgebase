@@ -16,6 +16,7 @@ interface Props {
 }
 const { tags, collections, back } = Astro.props;
 const defs = Astro.props.defs.filter((d) => d.kind !== 'relation');
+import DatePicker from './DatePicker.astro';
 ---
 <button type="button" data-bulk-toggle aria-pressed="false" class="btn py-1 text-sm">Select</button>
 
@@ -51,9 +52,11 @@ const defs = Astro.props.defs.filter((d) => d.kind !== 'relation');
             <option value="true">Yes</option>
             <option value="false">No</option>
           </select>
+        ) : d.kind === 'date' ? (
+          <DatePicker mode="field" name="value" value="" label={`${d.label} value`} placeholder="No date (clears)" class="w-44 text-sm" />
         ) : (
-          <input name="value" aria-label={`${d.label} value`} placeholder={d.kind === 'date' ? 'YYYY-MM-DD' : 'Value (empty clears)'}
-            type={d.kind === 'date' ? 'date' : d.kind === 'number' ? 'number' : 'text'} class="field w-40 py-1.5 text-sm" disabled />
+          <input name="value" aria-label={`${d.label} value`} placeholder={d.kind === 'time' ? 'e.g. 14:00 (empty clears)' : 'Value (empty clears)'}
+            type={d.kind === 'number' ? 'number' : 'text'} class="field w-40 py-1.5 text-sm" disabled />
         )}
       </span>
     ))}
