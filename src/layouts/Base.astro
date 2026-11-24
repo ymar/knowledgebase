@@ -125,7 +125,7 @@ const paletteTypes = types.map((t) => ({ id: t.id, name: t.name, slug: t.slug, i
                 <li>
                   <a href={`/o/${o.id}`} aria-current={o.id === activeObjectId ? 'page' : undefined}
                     class="flex items-center gap-3 rounded-lg px-2 py-1.5 text-sm text-ink/80 hover:bg-hover aria-[current=page]:bg-card aria-[current=page]:font-medium aria-[current=page]:text-ink aria-[current=page]:shadow-xs">
-                    <TypeTile icon={o.type_icon} color={o.type_color} size="sm" />
+                    <TypeTile icon={o.type_icon} color={o.type_color} size="sm" emoji={o.icon} />
                     <span class="flex-1 truncate">{o.type_id === 'type_day' ? dayLabel(o.title) : o.title || 'Untitled'}</span>
                   </a>
                 </li>

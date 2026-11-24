@@ -131,6 +131,11 @@ Do not copy Capacities assets, icons, logo or wording.
   with a `day_key`, tasks included. Repeating tasks show only their next date. Daily notes up to today have a
   "Mark reviewed" toggle (`POST /api/days/:date/reviewed`, stored as `reviewed_at` in the day's properties); the
   calendar shows it. `DatePicker` navigate mode takes `href` (with `{date}`) and `compact`. MCP: `get_calendar`.
+- Icons and covers (no schema): hidden properties `_icon` (one emoji, `cleanEmoji`) and `_cover` (a `preset:<name>` from
+  `COVER_PRESETS` or a `/files/` URL), in `src/lib/media.ts`. Keys from labels never start with `_`, and `changeType`
+  keeps `_` keys. Summary queries select `icon`; `TypeTile` takes `emoji` and shows it instead of the type icon (lists,
+  cards, pinned, palette, @ menu). Object page: `IconPicker` / `CoverPicker`, actions set-icon, remove-icon, set-cover
+  (preset or image upload to R2), remove-cover. MCP `update_object` takes `icon`.
 - `astro dev` runs as a managed background process: stop it with `npx astro dev stop` before `db:reset`.
 
 ## Code rules
@@ -227,7 +232,7 @@ Items marked SCHEMA need approval of the SQL before building.
       card (title, type tile, two properties).
 - [ ] **Open to-dos across objects**: extract checklist items on save into a `todos` table
       (`object_id, block_id, text, done`) and show an "Open to-dos" list on the home page. SCHEMA.
-- [ ] **Object icon/emoji and cover image** SCHEMA: `objects.icon`, `objects.cover_key` (R2).
+- [x] **Object icon/emoji and cover image**: built without schema, as hidden properties `_icon` and `_cover`.
 - [x] **Quick capture**: a global shortcut and a phone-friendly button that appends a line to today's note.
 
 ### Gap analysis round 2 (after daily notes, workspaces, per-workspace types)
@@ -248,7 +253,7 @@ Ranked by value for daily use. SCHEMA items need the SQL approved first.
 - [x] **N7 Aliases**: extra names per object, used by `@` search and unlinked mentions.
 - [x] **N8 Calendar depth**: a time property and times on scheduled objects; week and month views;
       a "reviewed" mark on daily notes.
-- [ ] **N9 Icons/covers** (as above). Quick capture is done.
+- [x] **N9 Icons/covers** and quick capture.
 - [ ] **Small**: move an object to another workspace; Day/Tag switchable per workspace; date picker in the
       filter row; "+ Type" buttons on other object pages (KB's own idea, not in Capacities).
 

@@ -106,7 +106,7 @@ const hasFilters = params.filters.length > 0 || params.sort.key !== 'updated';
         {recent.map((o) => (
           <li>
             <a href={`/o/${o.id}`} class="card flex h-full flex-col gap-3 p-3.5">
-              <TypeTile icon={o.type_icon} color={o.type_color} size="sm" />
+              <TypeTile icon={o.type_icon} color={o.type_color} size="sm" emoji={o.icon} />
               <span class="line-clamp-2 text-sm font-medium">{isDay ? dayLabel(o.title) : o.title || 'Untitled'}</span>
             </a>
           </li>

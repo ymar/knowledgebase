@@ -47,7 +47,7 @@ export interface Backlink {
 export async function getBacklinks(targetId: string, targetTitle: string): Promise<Backlink[]> {
   const { results } = await db()
     .prepare(
-      `SELECT o.id, o.type_id, o.title, o.updated_at, o.content,
+      `SELECT o.id, o.type_id, o.title, o.updated_at, json_extract(o.properties, '$._icon') AS icon, o.content,
               t.name AS type_name, t.slug AS type_slug, t.icon AS type_icon, t.color AS type_color,
               group_concat(l.origin) AS origins
        FROM links l

@@ -19,7 +19,7 @@ const originLabel = { tag: 'Tagged', property: 'Property' } as const;
       {backlinks.map(({ source, origins, snippets }) => (
         <li class="card p-4">
           <a href={`/o/${source.id}`} class="flex items-center gap-2.5 font-medium hover:underline">
-            <TypeTile icon={source.type_icon} color={source.type_color} size="sm" />
+            <TypeTile icon={source.type_icon} color={source.type_color} size="sm" emoji={source.icon} />
             <span class="truncate">{source.type_id === 'type_day' ? dayLabel(source.title) : source.title || 'Untitled'}</span>
             {origins.filter((o) => o !== 'content').map((o) => (
               <span class="ml-auto rounded-full border border-line px-2 py-0.5 text-[11px] font-normal text-muted">{originLabel[o as 'tag' | 'property']}</span>

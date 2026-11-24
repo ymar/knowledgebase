@@ -16,7 +16,7 @@ const hydrate = (r: RawObject): ObjectRow => ({
 });
 
 const SUMMARY_SELECT = `
-  SELECT o.id, o.type_id, o.title, o.updated_at,
+  SELECT o.id, o.type_id, o.title, o.updated_at, json_extract(o.properties, '$._icon') AS icon,
          t.name AS type_name, t.slug AS type_slug, t.icon AS type_icon, t.color AS type_color
   FROM objects o JOIN types t ON t.id = o.type_id`;
 
@@ -96,6 +96,14 @@ export function normalizeAliases(input: string | string[], title: string): strin
     out.push(a);
   }
   return out.slice(0, 20);
+}
+
+/** Sets or clears a hidden presentation key (`_icon`, `_cover`) in an object's properties. */
+export async function setObjectMeta(id: string, key: '_icon' | '_cover', value: string | null): Promise<void> {
+  const stmt = value === null
+    ? db().prepare(`UPDATE objects SET properties = json_remove(properties, '$.${key}'), updated_at = ? WHERE id = ? AND deleted_at IS NULL`).bind(nowIso(), id)
+    : db().prepare(`UPDATE objects SET properties = json_set(properties, '$.${key}', ?), updated_at = ? WHERE id = ? AND deleted_at IS NULL`).bind(value, nowIso(), id);
+  await stmt.run();
 }
 
 /** Saves aliases (stored one per line). Returns the saved list. */
@@ -186,8 +194,9 @@ export async function changeType(
   newDefs: PropertyDef[],
 ): Promise<string[]> {
   const keep = new Set(newDefs.map((d) => d.key));
-  const kept = Object.fromEntries(Object.entries(current).filter(([k]) => keep.has(k)));
-  const dropped = Object.keys(current).filter((k) => !keep.has(k) && current[k] !== null && current[k] !== '');
+  // Keys starting with _ (icon, cover) belong to the object, not its type: they always stay.
+  const kept = Object.fromEntries(Object.entries(current).filter(([k]) => keep.has(k) || k.startsWith('_')));
+  const dropped = Object.keys(current).filter((k) => !keep.has(k) && !k.startsWith('_') && current[k] !== null && current[k] !== '');
   const now = nowIso();
   const d = db();
   const relationTargets = [

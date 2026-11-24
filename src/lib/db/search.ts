@@ -2,7 +2,7 @@ import type { ObjectSummary } from '../schema';
 import { db } from './index';
 
 const SUMMARY = `
-  SELECT o.id, o.type_id, o.title, o.updated_at, o.aliases,
+  SELECT o.id, o.type_id, o.title, o.updated_at, json_extract(o.properties, '$._icon') AS icon, o.aliases,
          t.name AS type_name, t.slug AS type_slug, t.icon AS type_icon, t.color AS type_color
   FROM objects o JOIN types t ON t.id = o.type_id`;
 
@@ -72,7 +72,7 @@ export async function searchFullText(ws: string, input: string, limit = 20): Pro
   if (!match) return [];
   const { results } = await db()
     .prepare(
-      `SELECT o.id, o.type_id, o.title, o.updated_at,
+      `SELECT o.id, o.type_id, o.title, o.updated_at, json_extract(o.properties, '$._icon') AS icon,
               t.name AS type_name, t.slug AS type_slug, t.icon AS type_icon, t.color AS type_color,
               snippet(objects_fts, 2, char(2), char(3), '…', 14) AS snippet
        FROM objects_fts
@@ -105,7 +105,7 @@ export async function unlinkedCandidates(
   const phrase = `text_content : (${phrases.join(' OR ')})`;
   const { results } = await db()
     .prepare(
-      `SELECT o.id, o.type_id, o.title, o.updated_at, o.content,
+      `SELECT o.id, o.type_id, o.title, o.updated_at, json_extract(o.properties, '$._icon') AS icon, o.content,
               t.name AS type_name, t.slug AS type_slug, t.icon AS type_icon, t.color AS type_color,
               snippet(objects_fts, 2, char(2), char(3), '…', 14) AS snippet
        FROM objects_fts

@@ -75,9 +75,21 @@ const moveTargets = allTypes
   .filter((t) => t.id !== type.id && t.id !== 'type_day')
   .map((t) => ({ t, dropped: filled.filter((d) => !t.properties.some((p) => p.key === d.key)).map((d) => d.label) }));
 const pinned = object.pinned_at !== null;
+const objIcon = typeof object.properties._icon === 'string' ? object.properties._icon : null;
+const cover = coverStyle(object.properties._cover);
+const canDecorate = type.id !== 'type_day';
 const notice = Astro.url.searchParams.get('notice');
+import IconPicker from '../../components/IconPicker.astro';
+import CoverPicker from '../../components/CoverPicker.astro';
+import { coverStyle } from '../../lib/media';
 ---
 <Base title={object.title || 'Untitled'} activeTypeId={type.id} activeObjectId={object.id}>
+  {cover && (
+    <div data-cover class="group relative -mx-4 -mt-6 mb-6 h-36 md:-mx-10 md:-mt-14 md:mb-8 md:h-52" style={cover}>
+      <CoverPicker objectId={object.id} hasCover label="Change cover"
+        class="absolute bottom-2 right-3 rounded-lg bg-card/85 backdrop-blur md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 [&[open]]:opacity-100" />
+    </div>
+  )}
   <div class="flex items-center justify-between gap-3">
     <details class="relative" id="type-menu">
       <summary class="inline-flex cursor-pointer list-none items-center gap-2 rounded-lg py-1 pr-2 text-sm font-medium text-muted hover:text-ink"
@@ -102,6 +114,9 @@ const notice = Astro.url.searchParams.get('notice');
       </div>
     </details>
 
+    <div class="ml-auto flex items-center gap-0.5">
+    {canDecorate && !objIcon && <IconPicker objectId={object.id} current={null} />}
+    {canDecorate && !cover && <CoverPicker objectId={object.id} hasCover={false} />}
     <form method="post" action={`/api/objects/${object.id}`}>
       <input type="hidden" name="_action" value={pinned ? 'unpin' : 'pin'} />
       <button type="submit" aria-pressed={pinned ? 'true' : 'false'}
@@ -109,7 +124,10 @@ const notice = Astro.url.searchParams.get('notice');
         <Icon name="pin" size={15} /> {pinned ? 'Pinned' : 'Pin'}
       </button>
     </form>
+    </div>
   </div>
+
+  {canDecorate && objIcon && <div class="mt-4 -ml-1"><IconPicker objectId={object.id} current={objIcon} /></div>}
 
   {notice && <p role="status" class="mt-3 rounded-lg border border-line bg-card px-3 py-2 text-sm text-muted">{notice}</p>}
 

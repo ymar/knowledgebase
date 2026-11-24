@@ -8,7 +8,7 @@ export interface TrashedObject extends ObjectSummary {
 export async function listTrash(ws: string): Promise<TrashedObject[]> {
   const { results } = await db()
     .prepare(
-      `SELECT o.id, o.type_id, o.title, o.updated_at, o.deleted_at,
+      `SELECT o.id, o.type_id, o.title, o.updated_at, json_extract(o.properties, '$._icon') AS icon, o.deleted_at,
               t.name AS type_name, t.slug AS type_slug, t.icon AS type_icon, t.color AS type_color
        FROM objects o JOIN types t ON t.id = o.type_id
        WHERE o.workspace_id = ? AND o.deleted_at IS NOT NULL

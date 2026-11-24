@@ -55,7 +55,7 @@ export interface DateReference extends ObjectSummary {
 export async function dateReferences(ws: string, date: string): Promise<DateReference[]> {
   const { results } = await db()
     .prepare(
-      `SELECT o.id, o.type_id, o.title, o.updated_at, t.day_key,
+      `SELECT o.id, o.type_id, o.title, o.updated_at, json_extract(o.properties, '$._icon') AS icon, t.day_key,
               json_extract(o.properties, '$."' || (SELECT json_extract(p.value, '$.key') FROM json_each(t.properties) p
                 WHERE json_extract(p.value, '$.kind') = 'time' LIMIT 1) || '"') AS time,
               t.name AS type_name, t.slug AS type_slug, t.icon AS type_icon, t.color AS type_color
@@ -93,7 +93,7 @@ export interface DayActivity extends ObjectSummary {
 export async function activityOn(ws: string, date: string): Promise<DayActivity[]> {
   const { results } = await db()
     .prepare(
-      `SELECT o.id, o.type_id, o.title, o.updated_at,
+      `SELECT o.id, o.type_id, o.title, o.updated_at, json_extract(o.properties, '$._icon') AS icon,
               t.name AS type_name, t.slug AS type_slug, t.icon AS type_icon, t.color AS type_color,
               substr(o.created_at, 1, 10) = ?1 AS created_on_day
        FROM objects o JOIN types t ON t.id = o.type_id

@@ -28,7 +28,7 @@ export async function calendarEntries(ws: string, from: string, to: string): Pro
   const { results } = await db()
     .prepare(
       `SELECT * FROM (
-         SELECT o.id, o.type_id, o.title, o.updated_at,
+         SELECT o.id, o.type_id, o.title, o.updated_at, json_extract(o.properties, '$._icon') AS icon,
                 t.name AS type_name, t.slug AS type_slug, t.icon AS type_icon, t.color AS type_color,
                 json_extract(o.properties, '$."' || t.day_key || '"') AS date,
                 json_extract(o.properties, '$."' || ${TIME_KEY} || '"') AS time,

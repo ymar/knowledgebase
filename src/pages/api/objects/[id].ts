@@ -1,10 +1,12 @@
 import type { APIRoute } from 'astro';
 import {
   addTag, addToCollectionByName, changeType, completeTask, isTaskType, mergeTags, removeFromCollection, typeBelongsTo, createObject, findByTitle, getObject, getTypeById, removeTag, renameObject,
-  saveProperties, setAliases, setPinned, setTypeTemplate, softDeleteObject,
+  saveProperties, setAliases, setObjectMeta, setPinned, setTypeTemplate, softDeleteObject,
 } from '../../../lib/db';
 import { parsePropertyForm } from '../../../lib/properties';
 import { linkMention } from '../../../lib/unlinked';
+import { COVER_PRESETS, cleanEmoji } from '../../../lib/media';
+import { MAX_UPLOAD_BYTES, storeFile } from '../../../lib/files';
 import { TAG_TYPE_ID } from '../../../lib/schema';
 import { requestTimeZone, todayIn } from '../../../lib/format';
 
@@ -21,6 +23,29 @@ export const POST: APIRoute = async ({ params, request, redirect }) => {
   switch (form.get('_action')) {
     case 'rename':
       if (type.id !== 'type_day') await renameObject(id, field('title'));
+      break;
+    case 'set-icon': {
+      const emoji = cleanEmoji(field('icon'));
+      if (!emoji) return back('Pick an emoji as the icon.');
+      await setObjectMeta(id, '_icon', emoji);
+      break;
+    }
+    case 'remove-icon':
+      await setObjectMeta(id, '_icon', null);
+      break;
+    case 'set-cover': {
+      const file = form.get('file');
+      if (file instanceof File && file.size > 0) {
+        if (!file.type.startsWith('image/')) return back('A cover has to be an image.');
+        if (file.size > MAX_UPLOAD_BYTES) return back('That image is larger than 25 MB.');
+        await setObjectMeta(id, '_cover', await storeFile(file));
+      } else if (COVER_PRESETS[field('preset')]) {
+        await setObjectMeta(id, '_cover', field('preset'));
+      }
+      break;
+    }
+    case 'remove-cover':
+      await setObjectMeta(id, '_cover', null);
       break;
     case 'set-aliases':
       if (type.id !== 'type_day') await setAliases(id, String(form.get('aliases') ?? ''));

@@ -13,6 +13,7 @@ interface Hit {
   title: string;
   type_id: string;
   type_name: string;
+  icon?: string | null;
   type_icon: string;
   type_color: string;
   snippet: string;
@@ -244,7 +245,7 @@ export default function CommandPalette({
         label: h.type_id === DAY ? dayLabel(h.title) : h.title || 'Untitled',
         detail: h.type_name,
         snippet: h.snippet,
-        icon: { icon: h.type_icon, color: h.type_color },
+        icon: h.icon ? { icon: h.icon, color: 'transparent' } : { icon: h.type_icon, color: h.type_color },
         run: go(`/o/${h.id}`),
       });
     }

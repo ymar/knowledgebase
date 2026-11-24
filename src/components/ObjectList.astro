@@ -12,7 +12,7 @@ const { items, empty = 'Nothing here yet.' } = Astro.props;
     {items.map((o) => (
       <li>
         <a href={`/o/${o.id}`} class="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-hover">
-          <TypeTile icon={o.type_icon} color={o.type_color} size="sm" />
+          <TypeTile icon={o.type_icon} color={o.type_color} size="sm" emoji={o.icon} />
           <span class="flex-1 truncate text-[15px]">{o.type_id === 'type_day' ? dayLabel(o.title) : (o.title || 'Untitled')}</span>
           <span class="text-xs tabular-nums text-muted">{shortDate(o.updated_at)}</span>
         </a>

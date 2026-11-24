@@ -66,6 +66,8 @@ export interface ObjectSummary {
   type_color: string;
   /** Other names, one per line (search results only). */
   aliases?: string;
+  /** Emoji chosen for the object, shown instead of its type tile. */
+  icon?: string | null;
 }
 
 export type LinkOrigin = 'content' | 'tag' | 'property';

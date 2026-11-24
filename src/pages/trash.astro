@@ -19,7 +19,7 @@ const notice = Astro.url.searchParams.get('notice');
     <ul class="mt-8 divide-y divide-line overflow-hidden rounded-xl border border-line bg-card">
       {items.map((o) => (
         <li class="flex flex-wrap items-center gap-3 px-4 py-3">
-          <TypeTile icon={o.type_icon} color={o.type_color} size="sm" />
+          <TypeTile icon={o.type_icon} color={o.type_color} size="sm" emoji={o.icon} />
           <span class="min-w-0 flex-1">
             <span class="block truncate text-[15px]">{o.type_id === 'type_day' ? dayLabel(o.title) : o.title || 'Untitled'}</span>
             <span class="block text-xs text-muted">{o.type_name} · deleted {shortDate(o.deleted_at)}</span>

@@ -9,7 +9,7 @@ import {
   allTasks, completeTask, createObject, findDay, getBacklinks, getObject, getOrCreateDay, getSummaries,
   getTypeById, isTaskType, listObjectsByType, listTypes, listWorkspaces, pickedTags, saveContent,
   saveProperties, searchFullText, renameObject, taskTypeIdFor, tasksForDay, dateReferences,
-  createType, freeSlug, updateType, setTaskStatus, setAliases, splitAliases, calendarEntries, daysWithNotes, reviewedDays,
+  createType, freeSlug, updateType, setTaskStatus, setAliases, splitAliases, setObjectMeta, calendarEntries, daysWithNotes, reviewedDays,
 } from '../db';
 import { parseTypeForm, slugify, KINDS } from '../type-form';
 import { TYPE_COLORS, TYPE_ICONS } from '../icons';
@@ -18,6 +18,7 @@ import type { Workspace } from '../db';
 import type { Block } from '../doc';
 import { toMarkdown } from '../markdown';
 import { markdownToBlocks } from '../from-markdown';
+import { cleanEmoji } from '../media';
 import { displayValue } from '../property-display';
 import { parsePropertyForm } from '../properties';
 import { parseTaskTitle } from '../task-logic';
@@ -74,7 +75,7 @@ async function describeObject(id: string, origin: string): Promise<string> {
   const [tags, backlinks] = await Promise.all([pickedTags(o.id), getBacklinks(o.id, o.title)]);
   const title = o.type_id === 'type_day' ? dayLabel(o.title) : o.title;
   const lines = [
-    `# ${title || 'Untitled'}`,
+    `# ${typeof o.properties._icon === 'string' ? `${o.properties._icon} ` : ''}${title || 'Untitled'}`,
     `id: ${o.id} · type: ${type?.name ?? '?'} · url: ${origin}/o/${o.id}`,
     splitAliases(o.aliases).length ? `Also known as: ${splitAliases(o.aliases).join(', ')}` : '',
     ...props.map(([k, v]) => `${k}: ${v}`),
@@ -221,15 +222,21 @@ export function buildMcpServer(opts: { origin: string; timeZone: string }): McpS
       id: z.string(),
       title: z.string().optional(),
       aliases: z.array(z.string()).optional().describe('Full list of other names; [] clears them'),
+      icon: z.string().optional().describe('One emoji shown as the object\'s icon; "" removes it'),
       properties: z.record(z.string(), z.unknown()).optional(),
       append_markdown: z.string().optional(),
     }),
-  }, safe(async ({ id, title, aliases, properties, append_markdown }) => {
+  }, safe(async ({ id, title, aliases, icon, properties, append_markdown }) => {
     const o = await getObject(id);
     if (!o) throw new Error(`No object with id ${id}`);
     const t = (await getTypeById(o.type_id))!;
     if (title && o.type_id !== 'type_day') await renameObject(id, title);
     if (aliases && o.type_id !== 'type_day') await setAliases(id, aliases);
+    if (icon !== undefined && o.type_id !== 'type_day') {
+      const e = icon === '' ? null : cleanEmoji(icon);
+      if (icon !== '' && !e) throw new Error('icon must be an emoji');
+      await setObjectMeta(id, '_icon', e);
+    }
     if (properties) {
       const values = { ...o.properties, ...coerceProperties(t.properties, properties) };
       await saveProperties(id, t.properties, values);

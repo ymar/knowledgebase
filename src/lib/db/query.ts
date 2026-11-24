@@ -130,7 +130,7 @@ export async function queryObjects(opts: {
   // ORDER BY bindings come after WHERE bindings in the statement, so push LIMIT last.
   const { results } = await db()
     .prepare(
-      `SELECT o.id, o.type_id, o.title, o.updated_at, o.created_at, o.properties,
+      `SELECT o.id, o.type_id, o.title, o.updated_at, json_extract(o.properties, '$._icon') AS icon, o.created_at, o.properties,
               substr(o.text_content, 1, 220) AS excerpt,
               t.name AS type_name, t.slug AS type_slug, t.icon AS type_icon, t.color AS type_color
        FROM objects o JOIN types t ON t.id = o.type_id
@@ -144,7 +144,7 @@ export async function queryObjects(opts: {
 }
 
 const SUMMARY = `
-  SELECT o.id, o.type_id, o.title, o.updated_at,
+  SELECT o.id, o.type_id, o.title, o.updated_at, json_extract(o.properties, '$._icon') AS icon,
          t.name AS type_name, t.slug AS type_slug, t.icon AS type_icon, t.color AS type_color
   FROM objects o JOIN types t ON t.id = o.type_id`;
 

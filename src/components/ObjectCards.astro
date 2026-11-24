@@ -27,7 +27,7 @@ const title = (o: ObjectCard) => (o.type_id === 'type_day' ? dayLabel(o.title) :
       <li data-select={o.id}>
         <a href={`/o/${o.id}`} class="card flex h-full flex-col p-4">
           <span class="flex items-center gap-2.5">
-            <TypeTile icon={o.type_icon} color={o.type_color} size="sm" />
+            <TypeTile icon={o.type_icon} color={o.type_color} size="sm" emoji={o.icon} />
             <span class="truncate font-semibold">{title(o)}</span>
           </span>
           {shown(o, 3).length > 0 && (
@@ -48,7 +48,7 @@ const title = (o: ObjectCard) => (o.type_id === 'type_day' ? dayLabel(o.title) :
     {items.map((o) => (
       <li data-select={o.id}>
         <a href={`/o/${o.id}`} class="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-hover">
-          <TypeTile icon={o.type_icon} color={o.type_color} size="sm" />
+          <TypeTile icon={o.type_icon} color={o.type_color} size="sm" emoji={o.icon} />
           <span class="min-w-0 flex-1 truncate text-[15px]">{title(o)}</span>
           {shown(o, 2).map(({ d, text }) => (
             <span class="hidden max-w-[10rem] truncate rounded-md bg-panel px-1.5 py-0.5 text-xs text-muted sm:inline" title={d.label}>{text}</span>

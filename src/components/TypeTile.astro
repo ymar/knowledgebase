@@ -1,11 +1,15 @@
 ---
 import Icon from './Icon.astro';
 // Pastel tile: the type's icon in its color on a light tint of the same color.
-interface Props { icon: string; color: string; size?: 'sm' | 'md' | 'lg' }
-const { icon, color, size = 'md' } = Astro.props;
+interface Props { icon: string; color: string; size?: 'sm' | 'md' | 'lg'; /** An object's own emoji, shown instead of the type icon. */ emoji?: string | null }
+const { icon, color, size = 'md', emoji } = Astro.props;
 const box = { sm: 'h-6 w-6 rounded-md', md: 'h-8 w-8 rounded-lg', lg: 'h-11 w-11 rounded-xl' }[size];
 const px = { sm: 14, md: 17, lg: 22 }[size];
 ---
-<span class={`tile inline-flex shrink-0 items-center justify-center ${box}`} style={`--c:${color}`}>
-  <Icon name={icon} size={px} />
-</span>
+{emoji ? (
+  <span class={`inline-flex shrink-0 items-center justify-center ${box}`} style={`font-size:${px}px;line-height:1`} aria-hidden="true">{emoji}</span>
+) : (
+  <span class={`tile inline-flex shrink-0 items-center justify-center ${box}`} style={`--c:${color}`}>
+    <Icon name={icon} size={px} />
+  </span>
+)}

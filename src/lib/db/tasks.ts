@@ -23,7 +23,7 @@ export interface TaskRow extends ObjectSummary {
 }
 
 const SELECT = `
-  SELECT o.id, o.type_id, o.title, o.updated_at,
+  SELECT o.id, o.type_id, o.title, o.updated_at, json_extract(o.properties, '$._icon') AS icon,
          t.name AS type_name, t.slug AS type_slug, t.icon AS type_icon, t.color AS type_color,
          COALESCE(json_extract(o.properties, '$.done'), 0) AS done,
          json_extract(o.properties, '$.date') AS date,

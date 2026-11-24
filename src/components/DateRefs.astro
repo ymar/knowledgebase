@@ -10,6 +10,7 @@ interface Item {
   type_color: string;
   label: string;
   time?: string | null;
+  icon?: string | null;
 }
 interface Props { items: Item[]; class?: string }
 const { items, class: cls = '' } = Astro.props;
@@ -20,7 +21,7 @@ const { items, class: cls = '' } = Astro.props;
     {items.map((o) => (
       <li>
         <a href={`/o/${o.id}`} class="flex items-center gap-3 px-3.5 py-2.5 transition-colors hover:bg-hover">
-          <TypeTile icon={o.type_icon} color={o.type_color} size="sm" />
+          <TypeTile icon={o.type_icon} color={o.type_color} size="sm" emoji={o.icon} />
           <span class="min-w-0 flex-1">
             <span class="block truncate text-[15px]">{o.title || 'Untitled'}</span>
             <span class="block text-xs text-muted">{o.type_name} · {o.label}</span>

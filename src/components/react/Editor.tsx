@@ -34,6 +34,7 @@ interface Summary {
   type_icon: string;
   type_color: string;
   aliases?: string;
+  icon?: string | null;
 }
 
 /** The alias that `query` matched, when the title itself doesn't contain it. */
@@ -410,7 +411,7 @@ export default function Editor(props: {
       title: s.type_id === DAY ? dayLabel(s.title) : s.title || 'Untitled',
       subtext: matchedAlias(s, query) ? `${s.type_name} · also “${matchedAlias(s, query)}”` : s.type_name,
       group,
-      icon: <TypeTile icon={s.type_icon} color={s.type_color} size={22} />,
+      icon: s.icon ? <TypeTile icon={s.icon} color="transparent" size={22} /> : <TypeTile icon={s.type_icon} color={s.type_color} size={22} />,
       onItemClick: () => insertMention(s),
     }),
     [insertMention],

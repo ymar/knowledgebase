@@ -16,7 +16,7 @@ const label = `${e.time ? `${e.time} ` : ''}${e.title || 'Untitled'} (${e.is_tas
   ) : compact ? (
     <span class="h-1.5 w-1.5 shrink-0 rounded-full" style={`background:${e.type_color}`} aria-hidden="true"></span>
   ) : (
-    <TypeTile icon={e.type_icon} color={e.type_color} size="sm" />
+    <TypeTile icon={e.type_icon} color={e.type_color} size="sm" emoji={e.icon} />
   )}
   {compact ? (
     <>

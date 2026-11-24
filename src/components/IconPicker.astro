@@ -1,0 +1,35 @@
+---
+/** Emoji icon for an object: a grid of common choices, any emoji typed in, or remove. */
+import { ICON_CHOICES } from '../lib/media';
+
+interface Props { objectId: string; current: string | null }
+const { objectId, current } = Astro.props;
+const action = `/api/objects/${objectId}`;
+---
+<details class="relative" data-icon-picker>
+  <summary class:list={['inline-flex cursor-pointer list-none items-center rounded-lg', current ? 'p-1 text-5xl leading-none hover:bg-hover' : 'gap-1.5 px-2 py-1 text-sm text-muted hover:bg-hover hover:text-ink']}
+    title={current ? 'Change icon' : 'Add an icon'} aria-label={current ? `Icon ${current}. Change icon` : 'Add an icon'}>
+    {current ?? <><span aria-hidden="true">☺</span> Icon</>}
+  </summary>
+  <div class="absolute left-0 z-20 mt-1 w-72 rounded-xl border border-line bg-card p-2 shadow-lg">
+    <form method="post" action={action} class="grid grid-cols-8 gap-0.5">
+      <input type="hidden" name="_action" value="set-icon" />
+      {ICON_CHOICES.map((e) => (
+        <button name="icon" value={e} type="submit" aria-label={`Use ${e}`} aria-pressed={e === current ? 'true' : 'false'}
+          class="flex h-8 w-8 items-center justify-center rounded-md text-lg hover:bg-hover aria-pressed:bg-panel">{e}</button>
+      ))}
+    </form>
+    <form method="post" action={action} class="mt-2 flex gap-1.5 border-t border-line pt-2">
+      <input type="hidden" name="_action" value="set-icon" />
+      <label class="sr-only" for={`icon-${objectId}`}>Any emoji</label>
+      <input id={`icon-${objectId}`} name="icon" placeholder="Any emoji…" autocomplete="off" class="field min-w-0 flex-1 py-1.5 text-sm" />
+      <button class="btn py-1.5 text-sm" type="submit">Use</button>
+    </form>
+    {current && (
+      <form method="post" action={action} class="mt-1">
+        <input type="hidden" name="_action" value="remove-icon" />
+        <button type="submit" class="w-full rounded-lg px-2 py-1.5 text-left text-sm text-muted hover:bg-hover hover:text-ink">Remove icon</button>
+      </form>
+    )}
+  </div>
+</details>
