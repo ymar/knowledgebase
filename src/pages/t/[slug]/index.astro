@@ -60,6 +60,10 @@ const { items, groups, relTitles } = run;
 const otherTypes = wsTypes.filter((t) => t.id !== type.id && t.id !== 'type_day');
 const linksTarget = params.links ? (await getSummaries([params.links]))[params.links] : undefined;
 const groupDefs = defs.filter((d) => GROUPABLE.has(d.kind));
+// Board view: columns from the grouped select property, else the type's first select property.
+const selectDefs = defs.filter((d) => d.kind === 'select' && (d.options ?? []).length > 0);
+const boardBy = selectDefs.find((d) => d.key === params.group) ?? selectDefs[0];
+const asBoard = params.view === 'board' && !!boardBy;
 
 const error = Astro.url.searchParams.get('error');
 const url = Astro.url;
@@ -71,8 +75,9 @@ const tabs = [
 const filterRows = [...params.filters, { key: '', op: 'contains' as const, value: '' }];
 const kindOf = (key: string) => (key === 'title' ? 'text' : defs.find((d) => d.key === key)?.kind ?? 'text');
 const hasFilters = params.filters.length > 0 || params.sort.key !== 'updated' || hasMore(params);
+import TypeBoard from '../../../components/TypeBoard.astro';
 ---
-<Base title={type.name} activeTypeId={type.id}>
+<Base title={type.name} activeTypeId={type.id} wide={params.view === 'board' || params.view === 'table'}>
   <div class="flex items-center gap-4">
     <TypeTile icon={type.icon} color={type.color} size="lg" />
     <div>
@@ -178,7 +183,7 @@ const hasFilters = params.filters.length > 0 || params.sort.key !== 'updated' ||
     <div class="flex items-center gap-2">
     <BulkBar defs={defs} tags={bulkTags.map((t) => t.title)} collections={collections.map((c) => c.name)} back={`${Astro.url.pathname}${Astro.url.search.replace(/([?&])notice=[^&]*/, '$1').replace(/[?&]$/, '')}`} />
     <div class="flex gap-1 rounded-lg bg-panel p-1 text-sm" role="group" aria-label="View">
-      {(['list', 'cards'] as const).map((v) => (
+      {(['list', 'cards', 'table', ...(boardBy ? ['board'] : [])] as const).map((v) => (
         <a href={withParams(url, { view: v })} aria-current={params.view === v ? 'true' : undefined}
           class="rounded-md px-2.5 py-1 capitalize text-muted hover:text-ink aria-[current=true]:bg-card aria-[current=true]:text-ink aria-[current=true]:shadow-xs">
           {v}
@@ -287,7 +292,9 @@ const hasFilters = params.filters.length > 0 || params.sort.key !== 'updated' ||
 
   {notice && <p role="status" class="mt-4 rounded-lg border border-line bg-card px-3 py-2 text-sm text-muted">{notice}</p>}
 
-  {groups ? (
+  {asBoard ? (
+    <div class="mt-4"><TypeBoard items={items} defs={defs} by={boardBy!} relTitles={relTitles} /></div>
+  ) : groups ? (
     <div class="mt-4 space-y-6">
       {groups.length === 0 && <p class="rounded-xl border border-dashed border-line px-6 py-10 text-center text-sm text-muted">Nothing matches.</p>}
       {groups.map((g) => (

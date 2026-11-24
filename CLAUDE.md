@@ -159,6 +159,10 @@ Do not copy Capacities assets, icons, logo or wording.
   (`blockRef`, props `objectId` + `blockId`; read-only live copy of a block from another note, picked from
   `GET /api/objects/:id/blocks`; counts as a link like an object card). Markdown export: `$$…$$`, `> ↪ from [[Title]]`.
   Custom blocks sit inside `.react-renderer`, so CSS targets `.bn-block > .react-renderer > .bn-block-content`.
+- Type page views: List, Cards, Table (all properties as columns, horizontal scroll on phones) and Board (columns
+  from the grouped select property, else the first select; `TypeBoard.astro`, drag or per-card select,
+  `POST /api/objects/:id/prop {key, value}`; a task's Status goes through `setTaskStatus`). Board and Table use the
+  wide layout. The choice is kept in the `view_<slug>` cookie and saved views.
 - `astro dev` runs as a managed background process: stop it with `npx astro dev stop` before `db:reset`.
 
 ## Code rules
@@ -229,7 +233,7 @@ Items marked SCHEMA need approval of the SQL before building.
 
 - [x] **Type dashboard** instead of a flat list: sections "Recent", "Untagged", "No backlinks", and "All"
       (the filter/sort view from phase 3).
-- [x] **List / card view toggle** on type pages. Remembered per type in a cookie (`view_<slug>`) so the server renders it without a flash.
+- [x] **List / card / table / board views** on type pages. Remembered per type in a cookie (`view_<slug>`) so the server renders it without a flash.
 - [x] **Unlinked mentions** on each object: FTS hits on its title in objects that don't link to it, with a
       one-click "link" action.
 - [x] **Recently opened** SCHEMA: `objects.opened_at TEXT`, updated on detail view (`waitUntil`, off the
@@ -247,11 +251,11 @@ Items marked SCHEMA need approval of the SQL before building.
 
 ### After phase 4 (P2)
 
-- [ ] **Collections** SCHEMA: hand-picked groups within a type. Proposal: a `collections` table
+- [x] **Collections** (built as N4) SCHEMA: hand-picked groups within a type. Proposal: a `collections` table
       (`id, type_id, name, created_at, deleted_at`) and `collection_items (collection_id, object_id, position)`.
       Shown as a dashboard section and a filter.
-- [ ] **Saved queries** SCHEMA: store a type page's filter/sort as a named view. `views (id, type_id, name, spec JSON)`.
-- [ ] **Object cards in the editor**: a custom BlockNote block that renders a linked object as a small or wide
+- [x] **Saved queries** (built as N3) SCHEMA: store a type page's filter/sort as a named view. `views (id, type_id, name, spec JSON)`.
+- [x] **Object cards in the editor** (built as N5): a custom BlockNote block that renders a linked object as a small or wide
       card (title, type tile, two properties).
 - [x] **Open to-dos across objects**: built without a table, read from note content (Tasks › Checklists).
 - [x] **Object icon/emoji and cover image**: built without schema, as hidden properties `_icon` and `_cover`.
@@ -276,7 +280,7 @@ Ranked by value for daily use. SCHEMA items need the SQL approved first.
 - [x] **N8 Calendar depth**: a time property and times on scheduled objects; week and month views;
       a "reviewed" mark on daily notes.
 - [x] **N9 Icons/covers** and quick capture.
-- [ ] **Small**: move an object to another workspace [done]; Day/Tag switchable per workspace [done]; date picker in the
+- [x] **Small**: move an object to another workspace [done]; Day/Tag switchable per workspace [done]; date picker in the
       filter row [done]; "+ Type" buttons on other object pages [done].
 
 ### Follow-ups from the Capacities docs (tasks, queries, collections, bulk actions)

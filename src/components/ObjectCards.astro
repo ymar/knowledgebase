@@ -8,7 +8,8 @@ interface Props {
   /** `lines`: matching blocks to show under the result (query "Show matching blocks"). */
   items: (ObjectCard & { lines?: string[] })[];
   defs: PropertyDef[];
-  view: 'list' | 'cards';
+  /** 'board' is rendered by TypeBoard; here it falls back to the list. */
+  view: 'list' | 'cards' | 'table' | 'board';
   relTitles: Record<string, string>;
   empty: string;
 }
@@ -22,6 +23,32 @@ const title = (o: ObjectCard) => (o.type_id === 'type_day' ? dayLabel(o.title) :
 ---
 {items.length === 0 ? (
   <p class="rounded-xl border border-dashed border-line px-6 py-10 text-center text-sm text-muted">{empty}</p>
+) : view === 'table' ? (
+  <div class="overflow-x-auto rounded-xl border border-line bg-card">
+    <table class="w-full min-w-[36rem] border-collapse text-sm">
+      <thead>
+        <tr class="border-b border-line text-left text-xs font-medium text-muted">
+          <th scope="col" class="px-4 py-2.5 font-medium">Title</th>
+          {defs.map((d) => <th scope="col" class="whitespace-nowrap px-3 py-2.5 font-medium">{d.label}</th>)}
+          <th scope="col" class="whitespace-nowrap px-4 py-2.5 text-right font-medium">Edited</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-line">
+        {items.map((o) => (
+          <tr data-select={o.id} class="hover:bg-hover">
+            <th scope="row" class="max-w-[18rem] px-4 py-2.5 text-left font-normal">
+              <a href={`/o/${o.id}`} class="flex items-center gap-2.5 hover:underline">
+                <TypeTile icon={o.type_icon} color={o.type_color} size="sm" emoji={o.icon} />
+                <span class="truncate text-[15px]">{title(o)}</span>
+              </a>
+            </th>
+            {defs.map((d) => <td class="max-w-[14rem] truncate px-3 py-2.5 text-muted" title={displayValue(d, o.properties[d.key], relTitles)}>{displayValue(d, o.properties[d.key], relTitles)}</td>)}
+            <td class="whitespace-nowrap px-4 py-2.5 text-right text-xs tabular-nums text-muted">{shortDate(o.updated_at)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
 ) : view === 'cards' ? (
   <ul class="grid gap-3 sm:grid-cols-2">
     {items.map((o) => (

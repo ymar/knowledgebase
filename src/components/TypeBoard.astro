@@ -1,0 +1,102 @@
+---
+/**
+ * Board view of a type page: one column per option of a select property, plus "No <label>".
+ * Drag a card to another column, or use its select (keyboard and phones).
+ */
+import TypeTile from './TypeTile.astro';
+import { displayValue } from '../lib/property-display';
+import { dayLabel } from '../lib/format';
+import type { ObjectCard, PropertyDef } from '../lib/schema';
+
+interface Props { items: ObjectCard[]; defs: PropertyDef[]; by: PropertyDef; relTitles: Record<string, string> }
+const { items, defs, by, relTitles } = Astro.props;
+const cols = [...(by.options ?? []), ''];
+const valueOf = (o: ObjectCard) => {
+  const v = o.properties[by.key];
+  return typeof v === 'string' && (by.options ?? []).includes(v) ? v : '';
+};
+const label = (c: string) => c || `No ${by.label.toLowerCase()}`;
+const meta = (o: ObjectCard) => defs.filter((d) => d.key !== by.key).map((d) => displayValue(d, o.properties[d.key], relTitles)).filter(Boolean).slice(0, 2);
+---
+<div data-type-board data-key={by.key} class="flex snap-x gap-3 overflow-x-auto pb-2">
+  {cols.map((c) => {
+    const list = items.filter((o) => valueOf(o) === c);
+    return (
+      <section data-column={c} aria-label={label(c)}
+        class:list={['flex w-64 shrink-0 snap-start flex-col rounded-xl border border-line bg-panel p-2', cols.length <= 4 && 'md:w-auto md:min-w-0 md:flex-1', cols.length <= 6 && 'xl:w-auto xl:min-w-0 xl:flex-1', c === '' && list.length === 0 && 'opacity-70']}>
+        <h3 class="mb-2 flex items-center justify-between px-1.5 text-xs font-medium text-muted">
+          {label(c)}<span data-count class="tabular-nums">{list.length}</span>
+        </h3>
+        <ul data-cards class="flex min-h-16 flex-1 flex-col gap-2">
+          {list.map((o) => (
+            <li draggable="true" data-card={o.id} data-select={o.id}
+              class="relative cursor-grab rounded-lg border border-line bg-card p-2.5 shadow-xs active:cursor-grabbing">
+              <a href={`/o/${o.id}`} class="flex items-center gap-2 text-sm leading-snug hover:underline">
+                <TypeTile icon={o.type_icon} color={o.type_color} size="sm" emoji={o.icon} />
+                <span class="min-w-0 break-words">{o.type_id === 'type_day' ? dayLabel(o.title) : o.title || 'Untitled'}</span>
+              </a>
+              <div class="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted">
+                {meta(o).map((m) => <span class="max-w-full truncate rounded bg-panel px-1.5 py-0.5">{m}</span>)}
+                <label class="sr-only" for={`bd-${o.id}`}>{by.label} of {o.title}</label>
+                <select id={`bd-${o.id}`} data-move class="ml-auto rounded border-0 bg-transparent py-0 pl-0 pr-5 text-xs text-muted focus:ring-1 focus:ring-line">
+                  {cols.map((x) => <option value={x} selected={x === c}>{label(x)}</option>)}
+                </select>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+    );
+  })}
+</div>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-type-board]').forEach((board) => {
+    const key = board.dataset.key!;
+    const recount = () => board.querySelectorAll<HTMLElement>('[data-column]').forEach((c) => {
+      c.querySelector('[data-count]')!.textContent = String(c.querySelectorAll('[data-card]').length);
+    });
+    const toTop = (list: Element, card: HTMLElement) => list.insertBefore(card as unknown as Node, list.firstChild);
+    const move = async (card: HTMLElement, value: string) => {
+      const from = card.closest<HTMLElement>('[data-column]')!;
+      if (from.dataset.column === value) return;
+      toTop(board.querySelector(`[data-column="${CSS.escape(value)}"] [data-cards]`)!, card);
+      (card.querySelector('[data-move]') as unknown as { value: string }).value = value;
+      recount();
+      const res = await fetch(`/api/objects/${card.dataset.card}/prop`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ key, value }),
+      }).catch(() => null);
+      if (!res?.ok) {
+        toTop(from.querySelector('[data-cards]')!, card);
+        (card.querySelector('[data-move]') as unknown as { value: string }).value = from.dataset.column!;
+        recount();
+      }
+    };
+    let dragged: HTMLElement | null = null;
+    board.addEventListener('dragstart', (e) => { dragged = (e.target as HTMLElement).closest('[data-card]'); dragged?.classList.add('opacity-50'); });
+    board.addEventListener('dragend', () => {
+      dragged?.classList.remove('opacity-50');
+      board.querySelectorAll('[data-column]').forEach((c) => c.classList.remove('ring-2', 'ring-ink/20'));
+    });
+    board.addEventListener('dragover', (e) => {
+      const col = (e.target as HTMLElement).closest('[data-column]');
+      if (!col || !dragged) return;
+      e.preventDefault();
+      board.querySelectorAll('[data-column]').forEach((c) => c.classList.toggle('ring-2', c === col));
+      col.classList.add('ring-ink/20');
+    });
+    board.addEventListener('drop', (e) => {
+      const col = (e.target as HTMLElement).closest<HTMLElement>('[data-column]');
+      if (!col || !dragged) return;
+      e.preventDefault();
+      void move(dragged, col.dataset.column!);
+    });
+    board.addEventListener('change', (e) => {
+      const sel = (e.target as HTMLElement).closest('[data-move]') as unknown as { value: string; closest: (s: string) => HTMLElement | null } | null;
+      const card = sel?.closest('[data-card]');
+      if (sel && card) void move(card, sel.value);
+    });
+  });
+</script>

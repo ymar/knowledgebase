@@ -17,7 +17,7 @@ export interface ListParams {
   show: Show;
   filters: Filter[];
   sort: Sort;
-  view: 'list' | 'cards';
+  view: 'list' | 'cards' | 'table' | 'board';
   /** Collection id, if filtering to one. */
   collection?: string;
   /** Extra types shown alongside the page's own (ids). */
@@ -66,7 +66,7 @@ export function readListParams(url: URL, defs: PropertyDef[], cookieView?: strin
   const limit = Number(sp.get('limit'));
   const group = sp.get('group') ?? '';
   return {
-    show, filters, sort, view: raw === 'cards' ? 'cards' : 'list', collection: collection || undefined,
+    show, filters, sort, view: raw === 'cards' || raw === 'table' || raw === 'board' ? raw : 'list', collection: collection || undefined,
     also: [...new Set(sp.getAll('also').filter((v) => ID.test(v)))].slice(0, 10),
     tags: [...new Set(sp.getAll('tag').filter((v) => ID.test(v)))].slice(0, 10),
     links: ID.test(sp.get('links') ?? '') ? sp.get('links')! : undefined,

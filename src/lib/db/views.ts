@@ -6,7 +6,7 @@ export interface ViewSpec {
   show?: Show;
   filters?: Filter[];
   sort?: Sort;
-  view?: 'list' | 'cards';
+  view?: 'list' | 'cards' | 'table' | 'board';
   collection?: string;
   also?: string[];
   tags?: string[];
