@@ -53,7 +53,9 @@ Do not copy Capacities assets, icons, logo or wording.
   Link inserts only match targets in the source's workspace, so links never cross. The current workspace
   is the `ws` cookie, resolved into `Astro.locals.workspace` by `src/middleware.ts`. The editor sends its
   document's workspace explicitly (`?ws=` / `workspaceId`), so a switch in another tab can't misroute a save.
-  Opening an object from another workspace switches to it. Moving objects between workspaces is not built.
+  Opening an object from another workspace switches to it. "Move to workspace" (object page footer,
+  `moveObjectToWorkspace`) picks a type there (same name preselected), drops all its link rows, collection items and
+  relation values (its own and others' pointing at it), keeps hidden keys, unpins it; one batch.
 - Types per workspace (migration 0007): `types.workspace_id` (owner) and `types.enabled` (on/off in it).
   Day and Tag are system types with `workspace_id` NULL: shared, always on, fixed ids. Every other type
   belongs to one workspace; Work's copies of the starters have ids `type_note__ws_work` etc. and slugs with
@@ -261,7 +263,7 @@ Ranked by value for daily use. SCHEMA items need the SQL approved first.
 - [x] **N8 Calendar depth**: a time property and times on scheduled objects; week and month views;
       a "reviewed" mark on daily notes.
 - [x] **N9 Icons/covers** and quick capture.
-- [ ] **Small**: move an object to another workspace; Day/Tag switchable per workspace; date picker in the
+- [ ] **Small**: move an object to another workspace [done]; Day/Tag switchable per workspace; date picker in the
       filter row [done]; "+ Type" buttons on other object pages [done].
 
 ### Follow-ups from the Capacities docs (tasks, queries, collections, bulk actions)

@@ -232,3 +232,48 @@ export async function setPropertyValue(id: string, key: string, value: PropertyV
     .bind(`$."${key}"`, JSON.stringify(value), nowIso(), id)
     .run();
 }
+
+/**
+ * Moves an object to another workspace, as an object of `typeId` there. Links never cross workspaces,
+ * so this drops every link row to or from it, removes it from collections and from other objects'
+ * relation values, and keeps only property values whose key exists on the new type (relations dropped,
+ * `_` keys kept). Mention chips stay in the text as plain chips; they no longer count as links.
+ * One batch. Returns false if the object or type doesn't qualify.
+ */
+export async function moveObjectToWorkspace(id: string, ws: string, typeId: string): Promise<boolean> {
+  const d = db();
+  const obj = await getObject(id);
+  const type = await d.prepare('SELECT id, workspace_id, enabled, properties FROM types WHERE id = ?').bind(typeId)
+    .first<{ id: string; workspace_id: string | null; enabled: number; properties: string }>();
+  if (!obj || !type || obj.type_id === 'type_day' || obj.workspace_id === ws) return false;
+  if (type.id === 'type_day' || !type.enabled || (type.workspace_id !== null && type.workspace_id !== ws)) return false;
+  const defs = parseJson<PropertyDef[]>(type.properties, []);
+  const keep = new Set(defs.filter((p) => p.kind !== 'relation').map((p) => p.key));
+  // Keys the old type doesn't define are hidden bookkeeping (a task's done_at, an icon): they stay.
+  const oldType = await d.prepare('SELECT properties FROM types WHERE id = ?').bind(obj.type_id).first<{ properties: string }>();
+  const oldKeys = new Set(parseJson<PropertyDef[]>(oldType?.properties, []).map((p) => p.key));
+  const props = Object.fromEntries(Object.entries(obj.properties).filter(([k]) => keep.has(k) || !oldKeys.has(k)));
+
+  // Objects that hold this one in a relation property: take it out of those values.
+  const { results: holders } = await d
+    .prepare("SELECT o.id, o.properties FROM links l JOIN objects o ON o.id = l.source_id WHERE l.target_id = ? AND l.origin = 'property'")
+    .bind(id)
+    .all<{ id: string; properties: string }>();
+  const now = nowIso();
+  const statements = holders.map((h) => {
+    const p = parseJson<Record<string, PropertyValue>>(h.properties, {});
+    for (const [k, v] of Object.entries(p)) {
+      if (v === id) p[k] = null;
+      else if (Array.isArray(v) && v.includes(id)) p[k] = v.filter((x) => x !== id);
+    }
+    return d.prepare('UPDATE objects SET properties = ? WHERE id = ?').bind(JSON.stringify(p), h.id);
+  });
+  await d.batch([
+    ...statements,
+    d.prepare('UPDATE objects SET workspace_id = ?, type_id = ?, properties = ?, pinned_at = NULL, updated_at = ? WHERE id = ?')
+      .bind(ws, typeId, JSON.stringify(props), now, id),
+    d.prepare('DELETE FROM links WHERE source_id = ? OR target_id = ?').bind(id, id),
+    d.prepare('DELETE FROM collection_items WHERE object_id = ?').bind(id),
+  ]);
+  return true;
+}

@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import {
   addTag, addToCollectionByName, changeType, completeTask, isTaskType, mergeTags, removeFromCollection, typeBelongsTo, createObject, findByTitle, getObject, getTypeById, removeTag, renameObject,
-  saveProperties, setAliases, setObjectMeta, setPinned, setTypeTemplate, softDeleteObject,
+  saveProperties, setAliases, setObjectMeta, moveObjectToWorkspace, setPinned, setTypeTemplate, softDeleteObject,
 } from '../../../lib/db';
 import { parsePropertyForm } from '../../../lib/properties';
 import { linkMention } from '../../../lib/unlinked';
@@ -47,6 +47,12 @@ export const POST: APIRoute = async ({ params, request, redirect }) => {
     case 'remove-cover':
       await setObjectMeta(id, '_cover', null);
       break;
+    case 'move-workspace': {
+      const target = field('typeId');
+      if (!(await moveObjectToWorkspace(id, field('ws'), target))) return back('That type is not available in the other workspace.');
+      // Opening it switches to its new workspace.
+      return redirect(`/o/${id}?notice=${encodeURIComponent('Moved. Links to and from the old workspace were removed.')}`, 303);
+    }
     case 'set-aliases':
       if (type.id !== 'type_day') await setAliases(id, String(form.get('aliases') ?? ''));
       break;
