@@ -3,3 +3,7 @@ dist
 .wrangler
 .astro
 .dev.vars
+
+# Playwright
+test-results/
+playwright-report/

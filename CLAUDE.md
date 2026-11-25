@@ -10,7 +10,7 @@ Do not copy Capacities assets, icons, logo or wording.
 - Stop after each phase (and each gap batch below), report what was built and how to test it, wait for "go".
 - Show schema changes before applying them. Migrations are append-only: never edit an applied file.
 - If two requirements conflict or something is unclear, ask. Don't guess.
-- After each phase: `npm run check`, `npm run build`, and run the main flow against local D1 before reporting.
+- After each phase: `npm run check`, `npm run build` and `npm test` (all green) before reporting. New features get a spec in `tests/`.
 
 ## Stack
 
@@ -165,6 +165,18 @@ Do not copy Capacities assets, icons, logo or wording.
   wide layout. The choice is kept in the `view_<slug>` cookie and saved views.
 - `astro dev` runs as a managed background process: stop it with `npx astro dev stop` before `db:reset`.
 
+## Tests
+
+- Playwright Test in `tests/` (`playwright.config.ts`), one worker, Chromium. `tests/global-setup.ts` stops any dev
+  server, runs `db:reset`, starts `astro dev` (it backgrounds itself) and waits; teardown stops it. Set
+  `KB_TEST_REUSE=1` to run against a server you started yourself (no reset).
+- Tests don't depend on each other: each makes its own data with a `uid()` suffix (`tests/helpers.ts`: `createObject`,
+  `putContent`, `objectAction`, `mcp`, `saveNow`). Dates come from `isoDay()` (UTC, like local dev).
+- Wait on the server, not the clock: after a change, wait for its response (`saveNow`, `page.waitForResponse`) before
+  reloading. Optimistic UI updates pass instantly and hide races. Every test fails on an uncaught page error.
+- Search and Cmd+K results arrive after a debounce: wait for the hit itself, not a "New …" create action.
+- `tests/` has its own tsconfig (Node types); the app's tsconfig excludes it, so `astro check` stays app-only.
+
 ## Code rules
 
 - All SQL lives in `src/lib/db/`. Pages, components and endpoints call typed functions only.
@@ -184,6 +196,7 @@ npm run db:migrate     # local migrations
 npm run db:reset       # wipe local D1, re-migrate
 npm run db:migrate:remote
 npm run check && npm run build
+npm test               # Playwright e2e: resets local D1, starts astro dev, runs tests/, stops it
 ```
 
 ## Design system ("the feel")
