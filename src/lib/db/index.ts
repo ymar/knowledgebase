@@ -19,6 +19,7 @@ export * from './objects';
 export * from './links';
 export * from './days';
 export * from './calendar';
+export * from './weblinks';
 export * from './search';
 export * from './query';
 export * from './tags';

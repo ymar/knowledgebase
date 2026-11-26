@@ -251,6 +251,25 @@ export default function CommandPalette({
     }
     const query = q.trim();
     const lower = query.toLowerCase();
+    // A URL: save it as a Weblink and open it.
+    const weblink = types.find((t) => t.id === 'type_weblink' || t.id.startsWith('type_weblink__'));
+    if (weblink && /^(https?:\/\/\S+|([a-z0-9-]+\.)+[a-z]{2,}(:\d+)?(\/\S*)?)$/i.test(query)) {
+      out.unshift({
+        key: 'weblink',
+        group: 'Weblink',
+        label: 'Save link',
+        detail: query.length > 40 ? `${query.slice(0, 39)}…` : query,
+        icon: weblink,
+        run: async () => {
+          const res = await fetch('/api/weblinks', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ url: query, workspaceId: currentWorkspace }),
+          });
+          if (res.ok) window.location.href = `/o/${((await res.json()) as { id: string }).id}`;
+        },
+      });
+    }
     const day = types.find((t) => t.id === DAY);
     if (!query || 'capture'.startsWith(lower) || 'add to today'.startsWith(lower) || (lower.length > 2 && 'quick capture'.includes(lower))) {
       out.push({

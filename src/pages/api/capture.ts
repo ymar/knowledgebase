@@ -4,6 +4,8 @@ import type { Block } from '../../lib/doc';
 import { markdownToBlocks } from '../../lib/from-markdown';
 import { requestTimeZone, todayIn } from '../../lib/format';
 import { resolveWs } from '../../lib/workspace';
+import { isUrlLike } from '../../lib/weblink';
+import { saveWeblink } from '../../lib/weblink-save';
 
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
@@ -20,7 +22,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
   if (!text) return json({ error: 'Nothing to capture' }, 400);
   const ws = resolveWs(locals, input.workspaceId ?? null);
   const date = todayIn(requestTimeZone(request));
-  const blocks = await markdownToBlocks(text, ws);
+  // Just a URL: save it as a Weblink and capture a link to it.
+  let blocks: Block[];
+  if (isUrlLike(text)) {
+    const r = await saveWeblink(ws, text);
+    blocks = r.ok
+      ? [{ type: 'paragraph', props: {}, content: [{ type: 'mention', props: { id: r.summary.id, title: r.summary.title, typeId: r.summary.type_id } }, { type: 'text', text: ' ', styles: {} }] as never, children: [] }]
+      : await markdownToBlocks(text, ws);
+  } else {
+    blocks = await markdownToBlocks(text, ws);
+  }
   if (input.preview) return json({ date, blocks });
 
   const id = await getOrCreateDay(ws, date);

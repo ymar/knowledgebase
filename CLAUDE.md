@@ -118,7 +118,7 @@ Do not copy Capacities assets, icons, logo or wording.
   the same element (w-auto, px-2, py-1.5) override them.
 - MCP server at `/mcp` (`src/lib/mcp/server.ts`, MCP SDK v2 `createMcpHandler`, stateless). Tools: list_workspaces,
   list_types, search, get_object, list_objects, get_daily_note, append_to_daily_note, create_object, update_object,
-  create_type, add_properties, list_tasks, create_task, set_task_status, complete_task, get_calendar. No deletes. Markdown in, via `src/lib/from-markdown.ts` ([[Title]] links).
+  create_type, add_properties, list_tasks, create_task, set_task_status, complete_task, get_calendar, save_weblink. No deletes. Markdown in, via `src/lib/from-markdown.ts` ([[Title]] links).
   Auth: Cloudflare Access with Managed OAuth; vars ACCESS_TEAM_DOMAIN, ACCESS_AUD, TIMEZONE in wrangler.jsonc.
 - Aliases (migration 0014): `objects.aliases`, one per line (`splitAliases`), edited under the title as a comma list
   (`set-aliases`; deduped, never the title). FTS columns are title, aliases, text_content (snippet column 2, bm25
@@ -163,6 +163,15 @@ Do not copy Capacities assets, icons, logo or wording.
   from the grouped select property, else the first select; `TypeBoard.astro`, drag or per-card select,
   `POST /api/objects/:id/prop {key, value}`; a task's Status goes through `setTaskStatus`). Board and Table use the
   wide layout. The choice is kept in the `view_<slug>` cookie and saved views.
+- Weblinks (migration 0016 adds the starter type Weblink per workspace: Link, Site, Description; `isWeblinkType`,
+  `weblinkTypeFor`): `saveWeblink` (`src/lib/weblink-save.ts`) normalizes the URL, returns the existing object for the
+  same URL in the workspace, else fetches the page (`fetchMeta` in `src/lib/weblink.ts`: 6 s timeout, first 512 KB,
+  public hosts only, localhost in dev; `parseMeta` reads og/twitter/meta tags) and stores the preview image as
+  `_cover` (remote http(s) URLs are allowed there). Entry points: `POST /api/weblinks`, a URL as the title in
+  `POST /api/objects` for a Weblink type, "Save link" in the @ menu and Cmd+K, quick capture of a bare URL (links it
+  on today), MCP `save_weblink`. Object page: link card with Open and "Refresh preview" (keeps a title you typed).
+  Typing "/" inside an @ query opens the slash menu, so paste URLs after @. Tests use `/dev-fixtures/article` (404 in
+  production). Without the migration the feature hides itself.
 - `astro dev` runs as a managed background process: stop it with `npx astro dev stop` before `db:reset`.
 
 ## Tests
@@ -306,6 +315,12 @@ Ranked by value for daily use. SCHEMA items need the SQL approved first.
       group by a property, a limit (also random), and queries that include blocks.
 - [x] **Bulk actions** (N6): see docs.capacities.io/reference/bulk-actions.
 - Calendar integrations (Google/Outlook sync) stay out of scope: third-party integrations.
+
+### Round 3 (after the gap list)
+
+- [x] **Weblinks**: paste a URL, get an object with title, site, description and preview image.
+- [ ] **Files as objects**: PDFs and images as their own type, with properties, tags and backlinks.
+- [ ] **Editable block references** (edit in place, not only in the source).
 
 ### Only if asked (P3)
 

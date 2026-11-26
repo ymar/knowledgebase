@@ -22,7 +22,7 @@ export const DEFAULT_TYPES: {
       { key: 'done', label: 'Done', kind: 'checkbox' },
       { key: 'date', label: 'Date', kind: 'date' },
       { key: 'deadline', label: 'Deadline', kind: 'date' },
-      { key: 'time', label: 'Time', kind: 'text' },
+      { key: 'time', label: 'Time', kind: 'time' },
       { key: 'status', label: 'Status', kind: 'select', options: ['Not started', 'Next up', 'In progress', 'Blocked'] },
       { key: 'priority', label: 'Priority', kind: 'select', options: ['Low', 'Medium', 'High'] },
       { key: 'context', label: 'Context', kind: 'relation', multiple: true },
@@ -55,6 +55,14 @@ export const DEFAULT_TYPES: {
       { key: 'status', label: 'Status', kind: 'select', options: ['To read', 'Reading', 'Finished'] },
       { key: 'rating', label: 'Rating', kind: 'number' },
       { key: 'url', label: 'Link', kind: 'url' },
+    ],
+  },
+  {
+    id: 'type_weblink', name: 'Weblink', slug: 'weblink', icon: 'globe', color: '#0891b2', sort: 6,
+    properties: [
+      { key: 'url', label: 'Link', kind: 'url' },
+      { key: 'site', label: 'Site', kind: 'text' },
+      { key: 'description', label: 'Description', kind: 'text' },
     ],
   },
 ];

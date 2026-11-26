@@ -78,6 +78,8 @@ const pinned = object.pinned_at !== null;
 const objIcon = typeof object.properties._icon === 'string' ? object.properties._icon : null;
 const cover = coverStyle(object.properties._cover);
 const canDecorate = type.id !== 'type_day';
+// A weblink's address, only when it's a plain http(s) URL (it becomes an href).
+const linkUrl = isWeblinkType(type.id) && typeof object.properties.url === 'string' && /^https?:\/\//i.test(object.properties.url) ? object.properties.url : null;
 // Move to another workspace: its enabled types (not Day), same name preselected.
 const moveOptions = canDecorate
   ? await Promise.all(Astro.locals.workspaces.filter((w) => w.id !== object.workspace_id).map(async (w) => {
@@ -90,6 +92,7 @@ import IconPicker from '../../components/IconPicker.astro';
 import CoverPicker from '../../components/CoverPicker.astro';
 import { coverStyle } from '../../lib/media';
 import RelatedAdd from '../../components/RelatedAdd.astro';
+import { isWeblinkType } from '../../lib/db/weblinks';
 ---
 <Base title={object.title || 'Untitled'} activeTypeId={type.id} activeObjectId={object.id}>
   {cover && (
@@ -202,6 +205,23 @@ import RelatedAdd from '../../components/RelatedAdd.astro';
           class="-ml-1.5 w-40 rounded-md bg-transparent px-1.5 py-0.5 text-sm text-muted placeholder:text-muted focus:bg-card focus:text-ink focus:outline-none focus:ring-1 focus:ring-line" />
         <datalist id="collection-options">{typeCollections.filter((c) => !inCollections.some((x) => x.id === c.id)).map((c) => <option value={c.name} />)}</datalist>
       </form>
+    </div>
+  )}
+
+  {linkUrl && (
+    <div data-weblink class="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-line bg-card px-4 py-3">
+      <div class="min-w-0 flex-1">
+        <p class="truncate text-sm font-medium">{String(object.properties.site ?? '') || new URL(linkUrl).hostname}</p>
+        {object.properties.description && <p class="mt-0.5 line-clamp-2 text-sm text-muted">{String(object.properties.description)}</p>}
+        <p class="mt-1 truncate text-xs text-muted">{linkUrl}</p>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <form method="post" action={`/api/objects/${object.id}`}>
+          <input type="hidden" name="_action" value="refresh-link" />
+          <button class="btn px-2.5 py-1.5 text-sm" type="submit" title="Fetch the title, description and image again">Refresh preview</button>
+        </form>
+        <a href={linkUrl} target="_blank" rel="noopener noreferrer" class="btn-primary px-3 py-1.5 text-sm">Open ↗</a>
+      </div>
     </div>
   )}
 

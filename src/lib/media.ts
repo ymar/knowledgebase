@@ -31,5 +31,7 @@ export function coverStyle(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   if (COVER_PRESETS[value]) return `background:${COVER_PRESETS[value]}`;
   if (/^\/files\/[A-Za-z0-9._\-/]+$/.test(value)) return `background:url("${value}") center/cover no-repeat`;
+  // A weblink's preview image: a remote http(s) URL, without characters that could break out of url("…").
+  if (/^https?:\/\/[^\s"'()<>\\]+$/i.test(value) && value.length < 2000) return `background:url("${value}") center/cover no-repeat`;
   return null;
 }

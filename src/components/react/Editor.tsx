@@ -47,6 +47,8 @@ function matchedAlias(s: Summary, query: string): string | null {
 }
 
 const TAG = 'type_tag';
+/** One URL or bare domain (same rule as lib/weblink.ts isUrlLike). */
+const URL_LIKE = /^(https?:\/\/\S+|([a-z0-9-]+\.)+[a-z]{2,}(:\d+)?(\/\S*)?)$/i;
 const DAY = 'type_day';
 
 const RefsContext = createContext<{ refs: Record<string, RefInfo>; types: Record<string, TypeInfo> }>({
@@ -478,6 +480,17 @@ export default function Editor(props: {
       }
 
       const q = query.trim();
+      // A URL: save it as a Weblink (title and preview fetched) and link it here.
+      const weblink = props.types.find((t) => (t.id === 'type_weblink' || t.id.startsWith('type_weblink__')) && t.enabled !== false);
+      if (weblink && URL_LIKE.test(q)) {
+        items.unshift({
+          title: 'Save link',
+          subtext: q.length > 48 ? `${q.slice(0, 47)}…` : q,
+          group: 'Weblink',
+          icon: <TypeTile icon={weblink.icon} color={weblink.color} size={22} />,
+          onItemClick: () => void api<Summary>('/api/weblinks', { method: 'POST', body: JSON.stringify({ url: q, workspaceId: props.workspaceId }) }).then(insertMention),
+        });
+      }
       const same = (x: string) => x.trim().toLowerCase() === q.toLowerCase();
       if (q && !found.some((s) => same(s.title) || (s.aliases ?? '').split('\n').some(same))) {
         for (const t of props.types) {
@@ -492,7 +505,7 @@ export default function Editor(props: {
       }
       return items;
     },
-    [props.selfId, props.types, typesById, toItem, insertMention, create, wsq],
+    [props.selfId, props.types, props.workspaceId, typesById, toItem, insertMention, create, wsq],
   );
 
   const getTagItems = useCallback(

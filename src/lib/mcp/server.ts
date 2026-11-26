@@ -19,6 +19,7 @@ import type { Block } from '../doc';
 import { toMarkdown } from '../markdown';
 import { markdownToBlocks } from '../from-markdown';
 import { cleanEmoji } from '../media';
+import { saveWeblink } from '../weblink-save';
 import { displayValue } from '../property-display';
 import { parsePropertyForm } from '../properties';
 import { parseTaskTitle } from '../task-logic';
@@ -213,6 +214,21 @@ export function buildMcpServer(opts: { origin: string; timeZone: string }): McpS
       await saveContent(id, [...(o.content as Block[]), ...(await markdownToBlocks(markdown, ws.id))]);
     }
     return text(`Created ${t.name} "${title}" (id ${id}). ${origin}/o/${id}`);
+  }));
+
+  server.registerTool('save_weblink', {
+    title: 'Save a web page',
+    description: 'Saves a URL as a Weblink object: fetches the page title, site, description and preview image. If the URL is already saved in that workspace, returns the existing object. Optional Markdown is added to its note.',
+    inputSchema: z.object({ url: z.string().min(3), markdown: z.string().optional(), workspace: wsArg }),
+  }, safe(async ({ url, markdown, workspace }) => {
+    const ws = await resolveWorkspace(workspace);
+    const r = await saveWeblink(ws.id, url);
+    if (!r.ok) throw new Error(r.error);
+    if (markdown) {
+      const o = (await getObject(r.summary.id))!;
+      await saveContent(o.id, [...(o.content as Block[]), ...(await markdownToBlocks(markdown, ws.id))]);
+    }
+    return text(`${r.existed ? 'Already saved' : 'Saved'}: "${r.summary.title}" (id ${r.summary.id}). ${origin}/o/${r.summary.id}`);
   }));
 
   server.registerTool('update_object', {

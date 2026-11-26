@@ -6,6 +6,7 @@ import {
 import { parsePropertyForm } from '../../../lib/properties';
 import { linkMention } from '../../../lib/unlinked';
 import { COVER_PRESETS, cleanEmoji } from '../../../lib/media';
+import { refreshWeblink } from '../../../lib/weblink-save';
 import { MAX_UPLOAD_BYTES, storeFile } from '../../../lib/files';
 import { TAG_TYPE_ID } from '../../../lib/schema';
 import { requestTimeZone, todayIn } from '../../../lib/format';
@@ -53,6 +54,9 @@ export const POST: APIRoute = async ({ params, request, redirect }) => {
       // Opening it switches to its new workspace.
       return redirect(`/o/${id}?notice=${encodeURIComponent('Moved. Links to and from the old workspace were removed.')}`, 303);
     }
+    case 'refresh-link':
+      if (!(await refreshWeblink(id))) return back('This object has no web address to refresh.');
+      return back('Preview refreshed.');
     case 'set-aliases':
       if (type.id !== 'type_day') await setAliases(id, String(form.get('aliases') ?? ''));
       break;

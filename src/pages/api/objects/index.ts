@@ -1,11 +1,13 @@
 import type { APIRoute } from 'astro';
-import { getObject, createObject, findByTitle, findDay, getSummaries, getTypeById, isTaskType, saveProperties, typeBelongsTo } from '../../../lib/db';
+import { isWeblinkType, getObject, createObject, findByTitle, findDay, getSummaries, getTypeById, isTaskType, saveProperties, typeBelongsTo } from '../../../lib/db';
 import { parseTaskTitle } from '../../../lib/task-logic';
 import type { PropertyValue } from '../../../lib/schema';
 import { isIsoDay, requestTimeZone, todayIn } from '../../../lib/format';
 import { json } from '../../../lib/http';
 import { TAG_TYPE_ID } from '../../../lib/schema';
 import { resolveWs } from '../../../lib/workspace';
+import { isUrlLike } from '../../../lib/weblink';
+import { saveWeblink } from '../../../lib/weblink-save';
 
 /**
  * Create an object. Form posts (from list pages) redirect to the new object.
@@ -24,6 +26,14 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
   if (!type || !typeBelongsTo(type, ws) || !type.enabled) {
     const msg = !type ? 'Unknown type' : 'That type is not available in this workspace';
     return isJson ? json({ error: msg }, 400) : new Response(msg, { status: 400 });
+  }
+
+  // A Weblink named by a URL ("New weblink…" on its type page, the @ menu, the palette): fetch the page.
+  if (isWeblinkType(type.id) && isUrlLike(title)) {
+    const r = await saveWeblink(ws, title);
+    if (!r.ok) return isJson ? json({ error: r.error }, 400) : new Response(r.error, { status: 400 });
+    if (!isJson) return redirect(`/o/${r.summary.id}`, 303);
+    return json(r.summary, r.existed ? 200 : 201);
   }
 
   let id: string | null = null;
